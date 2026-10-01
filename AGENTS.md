@@ -21,7 +21,9 @@ sql/aidaa_core_master.sql     - master data (10 tables)
 sql/aidaa_core_planning.sql   - planning, budget, funding, schedule (13 tables)
 sql/aidaa_log_approval.sql    - aidaa_log (5 append-only tables) + approval_step, approval_task
 sql/aidaa_ai.sql              - aidaa_ai.ai_suggestion
-NOT created yet: pka, exe_procedure, working_paper, finding, rekomend, audit_report, deviation view.
+sql/aidaa_execution.sql       - pka, exe_procedure, working_paper, finding, finding_response,
+                                rekomend, audit_report, v_plan_deviation, can_skip, skipped status
+All tables exist. Next work is Python code only.
 
 ## Why the tables are grouped this way
 - aidaa_core master: data that rarely changes (locations, audit types, units, cost components
@@ -72,6 +74,13 @@ supervisor, leader, member. Only people with AIDAA.AUDITOR can hold them.
 AIDAA.AUDITOR carries the union of leader/member/supervisor permission codes, so IAM alone
 cannot tell them apart.
 
+## Org model
+Root org = the audit universe (for example a public accounting firm). The audit team is one org
+under that root, clients (parent and subsidiaries) are other orgs under the same root.
+audit_plan.owner_org_id and assignment.owner_org_id = the audit team's org, used for auditor-side
+permission checks. The auditee side is checked against ref_auditable_unit.org_id. All other
+tables find their org through their assignment (whitelist like _ORG_RESOURCES in GrIMIS).
+
 ## Access rules (enforce in code)
 - Two layers. Layer 1: require_permission("audit.xxx.yyy") from IAM. Layer 2: one shared
   helper that reads assignment_member and returns the caller's role in that assignment today.
@@ -89,6 +98,23 @@ cannot tell them apart.
 - Auditee PIC sees only the assignment of their own unit.
 - Rekomend stays open until resolved, monitored beyond the audit end.
 - Every write action logs to the matching aidaa_log table. Login is IAM only, no own login.
+
+## Review and finding rules
+- Tiered review uses approval_step. Procedure: leader_review (mandatory), then supervisor_review
+  (can_skip = true, a skip needs a reason in decision_note and approval_log). Finding:
+  leader_review then supervisor_approve (no skip). Report: supervisor_review then head_approve
+  (no skip). PKA: supervisor_approve. Working papers are reviewed through their procedure.
+- The reviewer is never the preparer at any tier. Rejected items return to the preparer's to-do
+  list. Reviewer notes go to comment_log, every decision to approval_log.
+- Skipped reviews can be reopened later. The report shows reviewed vs skipped counts.
+- Finding flow: draft, leader_reviewed, approved, communicated, responded, open or closed.
+  Communicating needs response_due_date, set per finding. Extending it logs the old and new
+  date with a reason in edit_log. The auditee PIC replies in finding_response (stance, action
+  plan, target date). A disagreement never deletes the finding, the supervisor decides, and the
+  report shows both positions. The report cannot be finalized while a communicated finding is
+  past its due date with no response, and those are shown as "no response".
+- audit_report.total_open_materiality is filled by app code from open rekomend rows.
+- v_plan_deviation shows plan vs assignment side by side. Never store deviation by hand.
 
 ## Working style
 One small task at a time. Show the plan first. Never touch files outside this folder.
