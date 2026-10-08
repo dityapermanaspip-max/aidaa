@@ -15,6 +15,7 @@ from app.services.scope import get_root, assert_in_root, scoped_get
 # --- ref_cost_component (scoped by root_org_id) ---
 
 _COMP = "aidaa_core.ref_cost_component"
+_LOC = "aidaa_core.ref_location"
 _COMP_COLS = ("component_id, component_code, component_name, calc_basis, sort_order, "
               "is_active, created_at, updated_at")
 
@@ -69,10 +70,11 @@ def deactivate_component(db: Session, component_id: UUID, user_id: UUID) -> dict
 
 # --- ref_cost_rate (no root column, the root comes from its cost component) ---
 
-_RATE_COLS = ("rate_id, component_id, location_id, grade, amount, effective_from, effective_to, "
-              "approval_status, approved_by, approved_at, is_active, created_at, updated_at")
+_RATE_COLS = ("rate_id, component_id, origin_location_id, location_id, grade, amount, effective_from, "
+              "effective_to, approval_status, approved_by, approved_at, is_active, created_at, updated_at")
 _RATE_COLS_R = ", ".join("r." + c.strip() for c in _RATE_COLS.split(","))
 _RATE_FROM = f"FROM aidaa_core.ref_cost_rate r JOIN {_COMP} c ON c.component_id = r.component_id"
+_RATE_UUIDS = {"component_id", "origin_location_id", "location_id", "approved_by"}
 
 
 def _rate(db: Session, rate_id: UUID, root_id: UUID) -> dict:
@@ -94,6 +96,32 @@ def _check_rate_dates(start, end):
         raise HTTPException(status_code=400, detail="effective_to cannot be before effective_from")
 
 
+def _gj(g):
+    """grade list -> JSON text for the jsonb column. None or empty means all grades (NULL)."""
+    return json.dumps(g) if g else None
+
+
+def _check_overlap(db: Session, cur: dict):
+    """Same component, route, place and grade must not have two live rates with overlapping dates."""
+    clash = db.execute(text("""
+        SELECT r.rate_id FROM aidaa_core.ref_cost_rate r
+        WHERE r.rate_id <> CAST(:id AS uuid) AND r.component_id = CAST(:c AS uuid)
+          AND r.is_active = TRUE AND r.approval_status IN ('pending','approved')
+          AND r.origin_location_id IS NOT DISTINCT FROM CAST(:o AS uuid)
+          AND r.location_id IS NOT DISTINCT FROM CAST(:l AS uuid)
+          AND r.effective_from <= COALESCE(CAST(:to AS date), DATE '9999-12-31')
+          AND COALESCE(r.effective_to, DATE '9999-12-31') >= CAST(:frm AS date)
+          AND (r.grade IS NULL OR CAST(:g AS jsonb) IS NULL OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(r.grade) x WHERE CAST(:g AS jsonb) @> to_jsonb(x)))
+        LIMIT 1
+    """), {"id": str(cur["rate_id"]), "c": str(cur["component_id"]),
+           "o": str(cur["origin_location_id"]) if cur.get("origin_location_id") else None,
+           "l": str(cur["location_id"]) if cur["location_id"] else None,
+           "to": cur["effective_to"], "frm": cur["effective_from"], "g": _gj(cur["grade"])}).fetchone()
+    if clash:
+        raise HTTPException(status_code=409, detail="Another pending or approved rate overlaps this one (same component, route, place, grade and dates)")
+
+
 def list_rates(db: Session, user_id: UUID, active_only: bool = True, component_id: Optional[UUID] = None,
                location_id: Optional[UUID] = None, status: Optional[str] = None,
                grade: Optional[str] = None, limit: Optional[int] = None, offset: int = 0) -> list[dict]:
@@ -112,44 +140,24 @@ def list_rates(db: Session, user_id: UUID, active_only: bool = True, component_i
            "g": grade, "lim": limit, "off": offset}).fetchall()
     return [dict(r._mapping) for r in rows]
 
-def _gj(g):
-    """grade list -> JSON text for the jsonb column. None or empty means all grades (NULL)."""
-    return json.dumps(g) if g else None
-
-
-def _check_overlap(db: Session, cur: dict):
-    """Same component, place and grade must not have two live rates with overlapping dates."""
-    clash = db.execute(text("""
-        SELECT r.rate_id FROM aidaa_core.ref_cost_rate r
-        WHERE r.rate_id <> CAST(:id AS uuid) AND r.component_id = CAST(:c AS uuid)
-          AND r.is_active = TRUE AND r.approval_status IN ('pending','approved')
-          AND r.location_id IS NOT DISTINCT FROM CAST(:l AS uuid)
-          AND r.effective_from <= COALESCE(CAST(:to AS date), DATE '9999-12-31')
-          AND COALESCE(r.effective_to, DATE '9999-12-31') >= CAST(:frm AS date)
-          AND (r.grade IS NULL OR CAST(:g AS jsonb) IS NULL OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(r.grade) x WHERE CAST(:g AS jsonb) @> to_jsonb(x)))
-        LIMIT 1
-    """), {"id": str(cur["rate_id"]), "c": str(cur["component_id"]),
-           "l": str(cur["location_id"]) if cur["location_id"] else None,
-           "to": cur["effective_to"], "frm": cur["effective_from"], "g": _gj(cur["grade"])}).fetchone()
-    if clash:
-        raise HTTPException(status_code=409, detail="Another pending or approved rate overlaps this one (same component, place, grade and dates)")
-
 
 def create_rate(db: Session, payload: CostRateCreate, user_id: UUID) -> dict:
     root = get_root(db, user_id)
     assert_in_root(db, _COMP, payload.component_id, root, "Cost component")
     if payload.location_id:
-        assert_in_root(db, "aidaa_core.ref_location", payload.location_id, root, "Location")
+        assert_in_root(db, _LOC, payload.location_id, root, "Location")
+    if payload.origin_location_id:
+        assert_in_root(db, _LOC, payload.origin_location_id, root, "Origin location")
     _check_rate_dates(payload.effective_from, payload.effective_to)
     row = db.execute(text(f"""
         INSERT INTO aidaa_core.ref_cost_rate
-            (component_id, location_id, grade, amount, effective_from, effective_to,
+            (component_id, origin_location_id, location_id, grade, amount, effective_from, effective_to,
              approval_status, created_by, updated_by)
-        VALUES (CAST(:c AS uuid), CAST(:l AS uuid), CAST(:grade AS jsonb), :amt, :frm, :to, 'draft',
-                CAST(:uid AS uuid), CAST(:uid AS uuid))
+        VALUES (CAST(:c AS uuid), CAST(:o AS uuid), CAST(:l AS uuid), CAST(:grade AS jsonb), :amt, :frm, :to,
+                'draft', CAST(:uid AS uuid), CAST(:uid AS uuid))
         RETURNING {_RATE_COLS}
     """), {"c": str(payload.component_id),
+           "o": str(payload.origin_location_id) if payload.origin_location_id else None,
            "l": str(payload.location_id) if payload.location_id else None,
            "grade": _gj(payload.grade), "amt": payload.amount, "frm": payload.effective_from,
            "to": payload.effective_to, "uid": str(user_id)}).fetchone()
@@ -167,15 +175,17 @@ def update_rate(db: Session, rate_id: UUID, payload: CostRateUpdate, user_id: UU
     if data.get("component_id"):
         assert_in_root(db, _COMP, data["component_id"], root, "Cost component")
     if data.get("location_id"):
-        assert_in_root(db, "aidaa_core.ref_location", data["location_id"], root, "Location")
+        assert_in_root(db, _LOC, data["location_id"], root, "Location")
+    if data.get("origin_location_id"):
+        assert_in_root(db, _LOC, data["origin_location_id"], root, "Origin location")
     _check_rate_dates(data.get("effective_from", current["effective_from"]),
                       data.get("effective_to", current["effective_to"]))
     if "grade" in data:
-        data["grade"] = _gj(data["grade"])    
+        data["grade"] = _gj(data["grade"])
     if current["approval_status"] == "rejected":  # edited after rejection: back to draft
         data.update({"approval_status": "draft", "approved_by": None, "approved_at": None})
     return _update_row(db, "aidaa_core.ref_cost_rate", "rate_id", rate_id, data,
-                       {"component_id", "location_id", "approved_by"}, user_id, _RATE_COLS)
+                       _RATE_UUIDS, user_id, _RATE_COLS)
 
 
 def submit_rate(db: Session, rate_id: UUID, user_id: UUID) -> dict:
@@ -185,6 +195,7 @@ def submit_rate(db: Session, rate_id: UUID, user_id: UUID) -> dict:
     _check_overlap(db, current)
     return _update_row(db, "aidaa_core.ref_cost_rate", "rate_id", rate_id,
                        {"approval_status": "pending"}, set(), user_id, _RATE_COLS)
+
 
 def decide_rate(db: Session, rate_id: UUID, payload: CostRateDecision, user_id: UUID) -> dict:
     current = _rate(db, rate_id, get_root(db, user_id))

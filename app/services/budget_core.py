@@ -44,7 +44,8 @@ def get_assignment_row(db: Session, assignment_id: UUID):
 
 def location_fits(db: Session, rate_location_id: UUID, line_location_id: UUID) -> bool:
     """A rate on a location with no city covers every place in the same province (SBM is per province).
-    A rate on a city location covers that city only. The same location row always fits."""
+    A rate on a city location covers that city only. When either side has no province (route rates such as
+    air tickets, written by city name only), the city names must match exactly."""
     if str(rate_location_id) == str(line_location_id):
         return True
     rows = db.execute(text("""
@@ -53,10 +54,14 @@ def location_fits(db: Session, rate_location_id: UUID, line_location_id: UUID) -
     """), {"a": str(rate_location_id), "b": str(line_location_id)}).fetchall()
     by_id = {str(r.location_id): r for r in rows}
     rate, line = by_id.get(str(rate_location_id)), by_id.get(str(line_location_id))
-    if not rate or not line or not rate.province or not line.province:
+    if not rate or not line:
         return False
     same = lambda x, y: (x or "").strip().lower() == (y or "").strip().lower()
-    if not same(rate.country, line.country) or not same(rate.province, line.province):
+    if not same(rate.country, line.country):
+        return False
+    if not rate.province or not line.province:
+        return bool(rate.city and line.city and same(rate.city, line.city))
+    if not same(rate.province, line.province):
         return False
     return rate.city is None or same(rate.city, line.city)
 

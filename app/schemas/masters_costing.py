@@ -53,6 +53,7 @@ def _clean_grades(v):
 
 class CostRateCreate(BaseModel):
     component_id: UUID
+    origin_location_id: Optional[UUID] = None  # route rates (air ticket, road): where the trip starts. location_id is the destination
     location_id: Optional[UUID] = None
     grade: Optional[List[str]] = None
     amount: float = Field(..., ge=0)
@@ -64,6 +65,7 @@ class CostRateCreate(BaseModel):
 
 class CostRateUpdate(BaseModel):
     component_id: Optional[UUID] = None
+    origin_location_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     grade: Optional[List[str]] = None
     amount: Optional[float] = Field(None, ge=0)
@@ -81,6 +83,7 @@ class CostRateDecision(BaseModel):
 class CostRateOut(BaseModel):
     rate_id: UUID
     component_id: UUID
+    origin_location_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     grade: Optional[List[str]] = None
     amount: float
