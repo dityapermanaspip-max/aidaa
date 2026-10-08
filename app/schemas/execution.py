@@ -257,3 +257,23 @@ class ReportDetail(ReportOut):
     review_counts: Dict[str, int] = {}
     findings: List[dict] = []
     open_materiality_now: float = 0
+
+
+# --- Plan deviation (read-only, aidaa_core.v_plan_deviation) ---
+
+class DeviationOut(BaseModel):
+    assignment_id: UUID
+    assignment_no: str
+    plan_id: Optional[UUID] = None
+    plan_no: Optional[str] = None
+    is_unplanned: bool
+    planned_auditors: Optional[int] = None
+    actual_auditors: int
+    planned_days: Optional[int] = None
+    actual_days: int
+    planned_man_days: Optional[int] = None
+    actual_man_days: int
+    planned_budget: Optional[float] = None
+    actual_budget: float
+    leader_changed: Optional[bool] = None
+    pka_planned_days: Optional[float] = None

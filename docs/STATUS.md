@@ -13,6 +13,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Plan deviation is now served: `GET /api/v1/aidaa/deviations` (`audit.deviation.read`, org scope through
+`get_user_accessible_org_ids`) reads `aidaa_core.v_plan_deviation`, and the FE page `/dashboard/aidaa/deviation`
+renders the plan-vs-actual comparison table (auditors, days, man-days, budget, leader change).
 Frontend execution edits: PKA title/objective/planned hours/auditor (draft only), procedure text, working paper
 (makes the PATCH endpoints reachable), plus the findings/recommendations/report tabs. FindingOut now carries
 `under_review` (pending approval_task) so the UI can show "Menunggu review". Run and docs below.
@@ -27,9 +30,8 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 2. Screen to set audit_setting.base_location_id and to edit auditor grade and home location with codes that match rate grades.
 3. Realisation feature: advance, accountability, reimbursement, variance, cross-subsidy (see domains/trip.md).
 4. Flag budget lines above the SBM reference with a required reason.
-5. Frontend batch 5e: PKA/procedures/papers, findings, recommendations and reports are written in the FE; plan deviation is not (no endpoint yet).
-6. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
-7. Wire seeded approval steps (budget verification, assignment_change).
+5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
+6. Wire seeded approval steps (budget verification, assignment_change).
 
 ## Known gaps
 - Auditors and expertise are not root-scoped (home_org_id). unit_code is unique across the whole database.
@@ -45,7 +47,5 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - **Trip AI has no router**: `app/services/trip_ai.py` and `app/schemas/trip_ai.py` exist, but
   `app/api/v1/aidaa/trip_ai.py` is missing and `app/main.py` does not mount it. The frontend has no trip AI code either
   ("Usulan AI" exists only in the plan budget). Until the router is added and mounted, this feature is not runnable.
-- **Plan deviation has no endpoint**: `aidaa_core.v_plan_deviation` and permission `audit.deviation.read` exist,
-  but nothing reads the view and the nav link `/dashboard/aidaa/deviation` 404s.
 - `GET /pka/{id}` is mounted but the frontend never calls it (the assignment list is enough).
   `PATCH /pka/{id}`, `PATCH /procedures/{id}` (text) and `PATCH /papers/{id}` are now used by the frontend.

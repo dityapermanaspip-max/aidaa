@@ -26,3 +26,5 @@ Format: date, decision, reason.
   (EXISTS a pending approval_task for the finding), not as a new status value. The status machine and its handlers stay unchanged.
 - 2026-10: Findings link to a procedure by `procedure_id` (validated against the same assignment). Only create sets it; FindingUpdate
   cannot change it, so the editor never offers it.
+- 2026-10: Plan deviation is read-only and scoped like the assignment list: `GET /deviations` filters by the caller's
+  accessible orgs in the SQL, deviation numbers are computed by the view, never by hand or by the page.

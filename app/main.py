@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, budgeting, exec_pka, exec_finding, exec_report, ai
+from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, budgeting, exec_pka, exec_finding, exec_report, exec_deviation, ai
 
 app = FastAPI(
     title="AIDAA - AI Driven Audit Assistant",
@@ -36,6 +36,7 @@ app.include_router(budgeting.router, prefix=API_PREFIX, tags=["Budget and Fundin
 app.include_router(exec_pka.router, prefix=API_PREFIX, tags=["Execution - PKA"])
 app.include_router(exec_finding.router, prefix=API_PREFIX, tags=["Execution - Findings"])
 app.include_router(exec_report.router, prefix=API_PREFIX, tags=["Execution - Report"])
+app.include_router(exec_deviation.router, prefix=API_PREFIX, tags=["Execution - Deviation"])
 app.include_router(ai.router, prefix=API_PREFIX, tags=["AI"])
 app.include_router(plan_budget_ai.router, prefix=f"{API_PREFIX}/plan", tags=["Plan Budget AI"])
 
