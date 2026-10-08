@@ -16,7 +16,10 @@ _FIND_SQL = """
     SELECT f.finding_id, f.assignment_id, f.procedure_id, f.finding_no, f.title, f.description,
            f.criteria, f.materiality_amount, f.communicated_at, f.response_due_date, f.status,
            f.created_by, f.created_at, f.updated_at,
-           COALESCE(f.status = 'communicated' AND f.response_due_date < CURRENT_DATE, FALSE) AS no_response
+           COALESCE(f.status = 'communicated' AND f.response_due_date < CURRENT_DATE, FALSE) AS no_response,
+           COALESCE((SELECT TRUE FROM aidaa_core.approval_task t
+                     WHERE t.record_type = 'finding' AND t.record_id = f.finding_id
+                       AND t.status = 'pending' LIMIT 1), FALSE) AS under_review
     FROM aidaa_core.finding f
 """
 

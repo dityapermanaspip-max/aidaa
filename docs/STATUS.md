@@ -13,6 +13,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Frontend execution edits: PKA title/objective/planned hours/auditor (draft only), procedure text, working paper
+(makes the PATCH endpoints reachable), plus the findings/recommendations/report tabs. FindingOut now carries
+`under_review` (pending approval_task) so the UI can show "Menunggu review". Run and docs below.
 Rate grade as jsonb, rate date rule (start date), overlap check, rate list filter and paging, ai_engine rewrite (retry, error text),
 SBM AI (four table shapes), plan budget AI, trip AI service and schema (no router), route rates (origin_location_id),
 base_location_id column.
@@ -24,7 +27,7 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 2. Screen to set audit_setting.base_location_id and to edit auditor grade and home location with codes that match rate grades.
 3. Realisation feature: advance, accountability, reimbursement, variance, cross-subsidy (see domains/trip.md).
 4. Flag budget lines above the SBM reference with a required reason.
-5. Frontend batch 5e: PKA/procedures/papers are written in the FE, findings, reports and deviation are not.
+5. Frontend batch 5e: PKA/procedures/papers, findings, recommendations and reports are written in the FE; plan deviation is not (no endpoint yet).
 6. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
 7. Wire seeded approval steps (budget verification, assignment_change).
 
@@ -44,4 +47,5 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   ("Usulan AI" exists only in the plan budget). Until the router is added and mounted, this feature is not runnable.
 - **Plan deviation has no endpoint**: `aidaa_core.v_plan_deviation` and permission `audit.deviation.read` exist,
   but nothing reads the view and the nav link `/dashboard/aidaa/deviation` 404s.
-- `GET /pka/{id}`, `PATCH /pka/{id}` and `PATCH /papers/{id}` are mounted but the frontend never calls them.
+- `GET /pka/{id}` is mounted but the frontend never calls it (the assignment list is enough).
+  `PATCH /pka/{id}`, `PATCH /procedures/{id}` (text) and `PATCH /papers/{id}` are now used by the frontend.

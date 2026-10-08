@@ -22,3 +22,7 @@ Format: date, decision, reason.
 - 2026-10: One database, three backends, one frontend. Each app owns its schemas and its port (IAM 8000, GrIMIS 8001, AIDAA 8002);
   the browser only ever talks to the Next BFF proxies, never to a backend directly.
 - 2026-10: The shared launcher git_part_2\dev.ps1 owns the run config for all four processes. Port or startup changes go there, not per repo.
+- 2026-10: A submitted finding keeps status `draft`; "waiting for review" is exposed as a derived `under_review` flag on FindingOut
+  (EXISTS a pending approval_task for the finding), not as a new status value. The status machine and its handlers stay unchanged.
+- 2026-10: Findings link to a procedure by `procedure_id` (validated against the same assignment). Only create sets it; FindingUpdate
+  cannot change it, so the editor never offers it.

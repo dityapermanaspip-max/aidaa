@@ -151,6 +151,7 @@ class FindingOut(BaseModel):
     response_due_date: Optional[date] = None
     status: str
     no_response: bool = False
+    under_review: bool = False
     created_at: datetime
     updated_at: datetime
 
