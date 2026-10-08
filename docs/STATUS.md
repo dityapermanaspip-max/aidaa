@@ -13,6 +13,18 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Multi-root support and round-2 org scope (items 5 and 8 of the High gap list):
+- A request picks its active AIDAA root once via `app/api/deps_root.py` (`resolve_root` mounted on every router
+  in `main.py`). `root_id` (query) or `X-DH-Root` (header) is validated against the roots the user holds AIDAA
+  roles in; a single root is derived automatically. `get_root` honors the pinned root, so all services behave as
+  one-root without any call-site change. A multi-root user who sends no root still gets 409, now with an
+  actionable message; the FE sends `root_id` derived from the active AIDAA context.
+- `aidaa_core.auditor` and `aidaa_core.ref_auditable_unit` now carry `root_org_id`
+  (`sql/aidaa_patch_04_org_scope2.sql`, run AFTER patch 03). Auditors are listed/created/updated/deactivated
+  inside the active root; `home_org_id` must live inside the root (the IAU tags any user in its tree);
+  expertise and documents are root-scoped through the auditor. `unit_code` is now unique PER root instead of
+  across the whole database.
+
 Plan deviation is now served: `GET /api/v1/aidaa/deviations` (`audit.deviation.read`, org scope through
 `get_user_accessible_org_ids`) reads `aidaa_core.v_plan_deviation`, and the FE page `/dashboard/aidaa/deviation`
 renders the plan-vs-actual comparison table (auditors, days, man-days, budget, leader change).
@@ -34,9 +46,7 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 6. Wire seeded approval steps (budget verification, assignment_change).
 
 ## Known gaps
-- Auditors and expertise are not root-scoped (home_org_id). unit_code is unique across the whole database.
 - Findings have no unit column.
-- A user whose AIDAA roles span more than one root gets 409 on root-dependent endpoints.
 - No file storage, documents are url or path metadata only. AI has no PDF upload and no looping above 30000 chars.
 - Real daily allowance and lodging spending is not recorded.
 - ROLE_ACTIONS in services/roles.py is a guess.
@@ -49,3 +59,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   ("Usulan AI" exists only in the plan budget). Until the router is added and mounted, this feature is not runnable.
 - `GET /pka/{id}` is mounted but the frontend never calls it (the assignment list is enough).
   `PATCH /pka/{id}`, `PATCH /procedures/{id}` (text) and `PATCH /papers/{id}` are now used by the frontend.
+- `sql/aidaa_patch_04_org_scope2.sql` has been applied to the database (2026-10): `auditor` and
+  `ref_auditable_unit` now carry `root_org_id`, `uq_ref_auditable_unit_root_code` replaced the global
+  `unit_code` unique constraint.

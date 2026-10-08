@@ -23,12 +23,12 @@ router = APIRouter()
 @router.get("/auditors", response_model=List[AuditorOut])
 def list_auditors(active_only: bool = True, search: Optional[str] = Query(None),
                   db: Session = Depends(get_db), user=Depends(auditor_read)):
-    return svc.list_auditors(db, active_only, search)
+    return svc.list_auditors(db, user.user_id, active_only, search)
 
 
 @router.get("/auditors/{auditor_id}", response_model=AuditorOut)
 def get_auditor(auditor_id: UUID, db: Session = Depends(get_db), user=Depends(auditor_read)):
-    return svc.get_auditor(db, auditor_id)
+    return svc.get_auditor(db, auditor_id, user.user_id)
 
 
 @router.post("/auditors", response_model=AuditorOut, status_code=201)
@@ -62,7 +62,7 @@ def deactivate_auditor(auditor_id: UUID, db: Session = Depends(get_db), user=Dep
 
 @router.get("/auditors/{auditor_id}/expertise", response_model=List[ExpertiseOut])
 def list_expertise(auditor_id: UUID, db: Session = Depends(get_db), user=Depends(expertise_read)):
-    return svc.list_expertise(db, auditor_id)
+    return svc.list_expertise(db, auditor_id, user.user_id)
 
 
 @router.post("/auditors/{auditor_id}/expertise", response_model=ExpertiseOut, status_code=201)
@@ -97,7 +97,7 @@ def verify_expertise(expertise_id: UUID, payload: ExpertiseVerify,
 
 @router.get("/expertise/{expertise_id}/documents", response_model=List[DocumentOut])
 def list_documents(expertise_id: UUID, db: Session = Depends(get_db), user=Depends(expertise_read)):
-    return svc.list_documents(db, expertise_id)
+    return svc.list_documents(db, expertise_id, user.user_id)
 
 
 @router.post("/expertise/{expertise_id}/documents", response_model=DocumentOut, status_code=201)

@@ -159,14 +159,14 @@ def deactivate_audit_type(db: Session, type_id: UUID, user_id: UUID) -> dict:
     return row
 
 
-# --- ref_auditable_unit (scoped through the root of its IAM organisation) ---
+# --- ref_auditable_unit (scoped through root_org_id, the root of the tagged IAM organisation) ---
 
 _UNIT_COLS = ("unit_id, org_id, unit_code, unit_name, unit_type, location_id, "
               "risk_score, is_active, created_at, updated_at")
 _UNIT_COLS_U = ", ".join("u." + c.strip() for c in _UNIT_COLS.split(","))
 _UNIT_FROM = """
-    FROM aidaa_core.ref_auditable_unit u LEFT JOIN iam.organizations o ON o.org_id = u.org_id
-    WHERE (u.org_id IS NULL OR COALESCE(o.root_org_id, o.org_id) = CAST(:r AS uuid))
+    FROM aidaa_core.ref_auditable_unit u
+    WHERE u.root_org_id = CAST(:r AS uuid)
 """
 
 
@@ -208,11 +208,12 @@ def create_unit(db: Session, payload: UnitCreate, user_id: UUID) -> dict:
     try:
         row = db.execute(text(f"""
             INSERT INTO aidaa_core.ref_auditable_unit
-                (org_id, unit_code, unit_name, unit_type, location_id, risk_score, created_by, updated_by)
-            VALUES (CAST(:org AS uuid), :code, :name, :utype, CAST(:loc AS uuid), :risk,
+                (root_org_id, org_id, unit_code, unit_name, unit_type, location_id, risk_score, created_by, updated_by)
+            VALUES (CAST(:r AS uuid), CAST(:org AS uuid), :code, :name, :utype, CAST(:loc AS uuid), :risk,
                     CAST(:uid AS uuid), CAST(:uid AS uuid))
             RETURNING {_UNIT_COLS}
         """), {
+            "r": str(get_root(db, user_id)),
             "org": str(payload.org_id) if payload.org_id else None,
             "code": payload.unit_code, "name": payload.unit_name, "utype": payload.unit_type,
             "loc": str(payload.location_id) if payload.location_id else None,
@@ -220,7 +221,7 @@ def create_unit(db: Session, payload: UnitCreate, user_id: UUID) -> dict:
         }).fetchone()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="unit_code already exists")
+        raise HTTPException(status_code=409, detail="unit_code already exists in this root organization")
     return dict(row._mapping)
 
 
@@ -233,7 +234,7 @@ def update_unit(db: Session, unit_id: UUID, payload: UnitUpdate, user_id: UUID) 
     get_unit(db, user_id, unit_id)  # 404 when the unit belongs to another root
     _check_unit_refs(db, user_id, data.get("org_id"), data.get("location_id"), unit_id)
     row = _update_row(db, "aidaa_core.ref_auditable_unit", "unit_id", unit_id, data,
-                      {"org_id", "location_id"}, user_id, _UNIT_COLS)
+                      {"org_id", "location_id"}, user_id, _UNIT_COLS, get_root(db, user_id))
     if not row:
         raise HTTPException(status_code=404, detail="Unit not found")
     return row
@@ -242,7 +243,7 @@ def update_unit(db: Session, unit_id: UUID, payload: UnitUpdate, user_id: UUID) 
 def deactivate_unit(db: Session, unit_id: UUID, user_id: UUID) -> dict:
     get_unit(db, user_id, unit_id)
     row = _update_row(db, "aidaa_core.ref_auditable_unit", "unit_id", unit_id,
-                      {"is_active": False}, set(), user_id, _UNIT_COLS)
+                      {"is_active": False}, set(), user_id, _UNIT_COLS, get_root(db, user_id))
     if not row:
         raise HTTPException(status_code=404, detail="Unit not found")
     return row

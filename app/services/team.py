@@ -11,6 +11,7 @@ from app.services.assignments import get_assignment
 from app.services.conflict import check_conflict
 from app.services.logs import log_team
 from app.services.plans import list_members as list_plan_members
+from app.services.scope import root_of_org
 
 _OPEN = ("draft", "issued", "ongoing")
 
@@ -54,8 +55,9 @@ def get_member(db: Session, assignment_id: UUID, member_id: UUID) -> dict:
 
 def _validate_auditor(db: Session, auditor_id: UUID, a: dict, user_id: UUID):
     aud = db.execute(text("""
-        SELECT user_id, status, is_active FROM aidaa_core.auditor WHERE auditor_id = CAST(:a AS uuid)
-    """), {"a": str(auditor_id)}).fetchone()
+        SELECT user_id, status, is_active FROM aidaa_core.auditor
+        WHERE auditor_id = CAST(:a AS uuid) AND root_org_id = CAST(:r AS uuid)
+    """), {"a": str(auditor_id), "r": str(root_of_org(db, a["owner_org_id"]))}).fetchone()
     if not aud:
         raise HTTPException(status_code=404, detail="Auditor not found")
     if not aud.is_active or aud.status != "active":

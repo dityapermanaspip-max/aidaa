@@ -19,7 +19,9 @@ All sql files are done and safe to rerun. Never edit them unless the owner asks.
    plan, team, pka, budget, report, library_improvement, expertise_extract, library_draft, sbm_draft, trip_draft.
    Any new AI feature is added to this one CHECK. Keep it the last statement that redefines the constraint.
 9. aidaa_patch_03_org_scope.sql  root_org_id on ref_location, ref_audit_type, ref_cost_component, ref_funding_source,
-   library_pka; codes unique per root; backfill. Run LAST of the patches.
+   library_pka; codes unique per root; backfill.
+10. aidaa_patch_04_org_scope2.sql  root_org_id on auditor and ref_auditable_unit (same pattern); unit_code unique per
+    root instead of the whole database. Run LAST of the patches.
 Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 must contain the complete list.
 
 ## Seeds (sql/sql_seed/, data not patches)
@@ -42,6 +44,9 @@ A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit
 - audit_plan.owner_org_id and assignment.owner_org_id were added after the planning file (NOT NULL).
 
 ## Org scope
-Five master tables carry root_org_id (locations, audit types, cost components, funding sources, PKA library). Cost rates inherit
-the root of their component. Codes are unique per root. A caller sees only their root (get_root). Another root's record answers 404.
+Seven master tables carry root_org_id (locations, audit types, cost components, funding sources, PKA library,
+auditors, auditable units). Cost rates inherit the root of their component. Codes are unique per root. A caller
+sees only their root (get_root, resolved once per request). Another root's record answers 404.
 Plans, assignments, budget lines, trip legs, funding allocation and the PKA copy reject records of another root.
+The Internal Audit Unit is a child org of the root; it audits the whole tree, tags any user as auditor and sets any
+child org as an auditable unit (both tags need the org to be inside the root).

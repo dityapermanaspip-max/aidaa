@@ -33,6 +33,7 @@ class AuditorOut(BaseModel):
     email: Optional[str] = None
     home_org_id: Optional[UUID] = None
     home_location_id: Optional[UUID] = None
+    root_org_id: Optional[UUID] = None
     employee_no: Optional[str] = None
     grade: Optional[str] = None
     status: str

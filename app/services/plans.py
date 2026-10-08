@@ -12,7 +12,7 @@ from app.services.masters import _exists, _update_row
 from app.services.logs import log_edit, log_status, log_team
 from app.services.conflict import check_conflict
 from app.services.org_options import assert_owner_org
-from app.services.scope import get_root, assert_in_root
+from app.services.scope import get_root, root_of_org, assert_in_root
 from app.services.unit_links import (
     clean_units, check_units, unit_org_ids, unit_ids_for, unit_ids_of, sync_units,
 )
@@ -205,8 +205,8 @@ def add_member(db: Session, plan_id: UUID, payload: PlanMemberCreate, user_id: U
 
     aud = db.execute(text("""
         SELECT auditor_id, user_id, status, is_active FROM aidaa_core.auditor
-        WHERE auditor_id = CAST(:a AS uuid)
-    """), {"a": str(payload.auditor_id)}).fetchone()
+        WHERE auditor_id = CAST(:a AS uuid) AND root_org_id = CAST(:r AS uuid)
+    """), {"a": str(payload.auditor_id), "r": str(root_of_org(db, plan["owner_org_id"]))}).fetchone()
     if not aud:
         raise HTTPException(status_code=404, detail="Auditor not found")
     if not aud.is_active or aud.status != "active":

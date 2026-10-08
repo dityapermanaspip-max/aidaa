@@ -17,6 +17,8 @@ SCOPED = {
     "aidaa_core.ref_cost_component": "component_id",
     "aidaa_core.ref_funding_source": "funding_id",
     "aidaa_core.library_pka": "library_pka_id",
+    "aidaa_core.ref_auditable_unit": "unit_id",
+    "aidaa_core.auditor": "auditor_id",
 }
 
 

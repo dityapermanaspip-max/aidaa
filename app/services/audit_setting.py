@@ -19,13 +19,30 @@ _ROOTS = """
     WHERE m.user_id = CAST(:u AS uuid) AND left(r.role_code, 6) = 'AIDAA.' AND m.org_id IS NOT NULL
 """
 
+# Per-request override set by the resolve_root dependency (app/api/deps_root.py).
+# get_root returns it verbatim, so a multi-root user's calls stay inside the root they picked.
+ROOT_ATTR = "_aidaa_root"
+
+
+def _roots(db: Session, user_id: UUID):
+    return db.execute(text(_ROOTS), {"u": str(user_id)}).fetchall()
+
+
+def get_accessible_roots(db: Session, user_id: UUID) -> list[UUID]:
+    return [r.root_id for r in _roots(db, user_id)]
+
 
 def get_root(db: Session, user_id: UUID) -> UUID:
-    rows = db.execute(text(_ROOTS), {"u": str(user_id)}).fetchall()
+    active = getattr(db, ROOT_ATTR, None)
+    if active is not None:
+        return active
+    rows = _roots(db, user_id)
     if not rows:
         raise HTTPException(status_code=403, detail="No AIDAA role is assigned in an organization")
     if len(rows) > 1:
-        raise HTTPException(status_code=409, detail="Your AIDAA roles span more than one root organization")
+        raise HTTPException(status_code=409,
+                            detail="Your AIDAA roles span more than one root organization; "
+                                   "send the active root_id (query parameter or X-DH-Root header)")
     return rows[0].root_id
 
 

@@ -28,3 +28,13 @@ Format: date, decision, reason.
   cannot change it, so the editor never offers it.
 - 2026-10: Plan deviation is read-only and scoped like the assignment list: `GET /deviations` filters by the caller's
   accessible orgs in the SQL, deviation numbers are computed by the view, never by hand or by the page.
+- 2026-10: AIDAA's root is resolved once per REQUEST, not once per user. `resolve_root` (a dependency on every
+  router) validates `root_id`/`X-DH-Root` against the roots the user holds AIDAA roles in and pins it on the db
+  session; single-root users need nothing. The 409 for multi-root callers stays (with an actionable message) only
+  when no root is sent. Reason: master data is shared inside one audit universe and plans/assignments are already
+  org-scoped, so only master-data calls need a root choice.
+- 2026-10: The Internal Audit Unit is a CHILD org reporting to the board; it audits the whole root tree. It may tag
+  ANY user as auditor (`auditor.home_org_id` inside the root) and set ANY child org as auditable unit
+  (`ref_auditable_unit.org_id` inside the root). Both tables got `root_org_id` (patch 04, same pattern as patch 03);
+  `unit_code` is unique per root, not globally. Reason: many roots share one deployment, and the IAU belongs to a
+  branch while the audited universe is the root.
