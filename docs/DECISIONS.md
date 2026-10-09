@@ -38,3 +38,10 @@ Format: date, decision, reason.
   (`ref_auditable_unit.org_id` inside the root). Both tables got `root_org_id` (patch 04, same pattern as patch 03);
   `unit_code` is unique per root, not globally. Reason: many roots share one deployment, and the IAU belongs to a
   branch while the audited universe is the root.
+- 2026-10: Trip AI drafts are exposed under `/assignment/{id}/ai/trip/drafts` and governed by the assignment's own
+  permissions (read: `audit.assignment.read`; create/decide: `audit.assignment.update` or `audit.assignment.logistics`),
+  not by a library/head-only permission. Reason: the helper edits the assignment's visits and legs, the same records the
+  assignment team already manages; drafts are already submitted by an active auditor role.
+- 2026-10: Editing a trip AI draft is limited to picking the leg destination from the server's airport list and dropping
+  rows; the ticket class and half costs are not human-editable in the modal. Reason: on accept the server re-prices from
+  approved rates anyway (`TripDraft(**out)` round-trip), so free-form money edits would be silently overwritten.

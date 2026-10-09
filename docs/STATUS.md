@@ -9,10 +9,16 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 ## Written, NOT yet exercised
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
-- Trip AI (schema and service only, see Known gaps), origin_location_id and location_fits change.
+- Trip AI (router and FE now exist, end-to-end not yet exercised), origin_location_id and location_fits change.
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Trip AI is now runnable: `app/api/v1/aidaa/trip_ai.py` added and mounted in `main.py` under
+`/api/v1/aidaa/assignment` (reads: `audit.assignment.read` + visibility; writes generate/decide:
+`audit.assignment.update` or `audit.assignment.logistics`), plus the FE "Usulan AI" modal on the trips tab
+(`darkhive-fev2 AssignmentTripAiModal`). Ride rules per `domains/trip.md`: AI answers only unit/start/end/
+participants/reason; legs priced from approved ticket rates (estr./bisnis), round trip = two half legs;
+on accept the server re-prices and only applies exact route matches.
 Multi-root support and round-2 org scope (items 5 and 8 of the High gap list):
 - A request picks its active AIDAA root once via `app/api/deps_root.py` (`resolve_root` mounted on every router
   in `main.py`). `root_id` (query) or `X-DH-Root` (header) is validated against the roots the user holds AIDAA
@@ -54,9 +60,8 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - Auditors without a grade match only rates with an empty grade list.
 - The library_ai router may still have a duplicate GET /library/ai/drafts (delete the second function).
 - Verify that budgeting's /assignment/{id}/funding does not clash with the assignment router.
-- **Trip AI has no router**: `app/services/trip_ai.py` and `app/schemas/trip_ai.py` exist, but
-  `app/api/v1/aidaa/trip_ai.py` is missing and `app/main.py` does not mount it. The frontend has no trip AI code either
-  ("Usulan AI" exists only in the plan budget). Until the router is added and mounted, this feature is not runnable.
+- **Trip AI is runnable but end-to-end not exercised**: `app/api/v1/aidaa/trip_ai.py` is mounted (`/assignment/{id}/ai/trip/drafts`),
+  the frontend modal exists ("Usulan AI" on the trips tab), but the flow was not run against a live AI engine yet (2026-10).
 - `GET /pka/{id}` is mounted but the frontend never calls it (the assignment list is enough).
   `PATCH /pka/{id}`, `PATCH /procedures/{id}` (text) and `PATCH /papers/{id}` are now used by the frontend.
 - `sql/aidaa_patch_04_org_scope2.sql` has been applied to the database (2026-10): `auditor` and
