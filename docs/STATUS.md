@@ -10,11 +10,19 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
 - **Realisation in the frontend**: the service layer passed a live-DB smoke test (transaction rolled back),
-  the FE tab (Realisasi) exists, but the flow was not exercised in the frontend yet.
+  settlement was smoke-tested (submit -> pending, approve -> settled, reject -> open -> resubmit), but the flow
+  was not exercised in the frontend yet.
 - Trip AI (router and FE now exist, end-to-end not yet exercised), origin_location_id and location_fits change.
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Realisation settlement is now runnable: `app/services/settlement.py` + two routes in the realisation router
+(`GET|POST /assignment/{id}/realisation/settlements`). Submitting an auditor's settlement upserts
+`realisation_settlement` (open) and creates an approval_task (`settlement` step 1 = `finance_approve`,
+`AIDAA.FINANCE`); the generic approval engine's decision runs `_on_settlement_task`, which settles the row
+(approved) or keeps it open for resubmit (rejected). The step seed was appended to `aidaa_log_approval.sql`
+(owner-approved) and applied. The service layer passed a live-DB smoke test covering submit -> pending +
+balance snapshot, approve -> settled + 409 on re-submit, reject -> open -> resubmit -> approved.
 Realisation feature (batch 1) is now runnable: `sql/aidaa_patch_05_realisation.sql` (applied to the database,
 2026-10) adds `realisation_advance`, `realisation_cost` (amount is a GENERATED column = quantity x unit_rate) and
 `realisation_settlement` (reserved for the settlement approval batch). Backend: `app/schemas/realisation.py`,
@@ -58,8 +66,7 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 ## To do (next)
 1. Test SBM AI with real text, then load real 2027 data (lodging, daily allowance, tickets, road, terminal, in-city transport).
 2. Screen to set audit_setting.base_location_id and to edit auditor grade and home location with codes that match rate grades.
-3. Realisation settlement workflow: turn `realisation_settlement` rows into the approval flow (open -> settled via
-   an approval_task for finance), and exercise the whole realisation feature in the FE.
+3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
 4. Flag budget lines above the SBM reference with a required reason.
 5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
 6. Wire seeded approval steps (budget verification, assignment_change).
@@ -81,4 +88,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   `ref_auditable_unit` now carry `root_org_id`, `uq_ref_auditable_unit_root_code` replaced the global
   `unit_code` unique constraint.
 - `sql/aidaa_patch_05_realisation.sql` has been applied to the database (2026-10): the three realisation tables
-  exist; `realisation_settlement` is unused until the settlement approval batch.
+  exist; `realisation_settlement` is filled by the settlement approval batch (submitted rows are open -> settled
+  via an `AIDAA.FINANCE` approval task). The `settlement` approval step was added to the `approval_step` seed in
+  `aidaa_log_approval.sql` and applied to the database.

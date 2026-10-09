@@ -12,3 +12,6 @@ from app.services.realisation_cost import (  # noqa: F401
     list_costs, create_cost, update_cost, delete_cost,
 )
 from app.services.realisation_report import balance_out, variance_out  # noqa: F401
+from app.services.settlement import (  # noqa: F401
+    list_settlements, submit_settlement, _on_settlement_task,
+)

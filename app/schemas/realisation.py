@@ -103,3 +103,25 @@ class VarianceOut(BaseModel):
     planned: float
     realised: float
     variance: float
+
+
+class SettlementCreate(BaseModel):
+    auditor_id: UUID
+    notes: Optional[str] = None
+
+
+class SettlementOut(BaseModel):
+    settlement_id: UUID
+    assignment_id: UUID
+    auditor_id: UUID
+    username: Optional[str] = None
+    status: str  # derived: settled | pending | open
+    advance_total: float
+    realised_total: float
+    balance: float  # advance - realised; positive = to be returned
+    notes: Optional[str] = None
+    created_at: datetime
+    created_by: Optional[UUID] = None
+    settled_at: Optional[datetime] = None
+    settled_by: Optional[UUID] = None
+    has_pending: bool

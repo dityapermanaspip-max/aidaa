@@ -23,8 +23,8 @@ All sql files are done and safe to rerun. Never edit them unless the owner asks.
 10. aidaa_patch_04_org_scope2.sql  root_org_id on auditor and ref_auditable_unit (same pattern); unit_code unique per
     root instead of the whole database. Run LAST of the patches.
 11. aidaa_patch_05_realisation.sql  realisation_advance, realisation_cost, realisation_settlement (2026-10, applied).
-    realisation_cost.amount is GENERATED (quantity x unit_rate), never insert it. realisation_settlement is reserved
-    for the settlement approval batch (open/settled via approval_task for finance).
+    realisation_cost.amount is GENERATED (quantity x unit_rate), never insert it. realisation_settlement is
+    open -> settled through an approval_task (settlement step 1 = finance_approve, AIDAA.FINANCE).
 Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 must contain the complete list.
 
 ## Seeds (sql/sql_seed/, data not patches)

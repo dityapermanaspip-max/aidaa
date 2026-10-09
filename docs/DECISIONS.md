@@ -59,3 +59,10 @@ Format: date, decision, reason.
 - 2026-10: Realisation reads use `audit.assignment.read` and writes `audit.assignment.update` or
   `audit.assignment.logistics`, same as trips. No new IAM permission. Reason: the people who run trips already
   manage the money spent on the same assignment.
+- 2026-10: Settlement is approved per AUDITOR via the generic approval engine: submitting an auditor's settlement
+  upserts `realisation_settlement` (status open, unique per assignment+auditor) and creates an approval_task
+  (record_type `settlement`, step 1 `finance_approve`, approver `AIDAA.FINANCE`). Approve -> status settled +
+  locked (re-submit refused with 409); reject/return -> stays open and can be resubmitted. The amount is never
+  stored: the current balance (advance - realised) is read from the report at render time and snapshot in each
+  `SettlementOut` response. Reason: no drift between the report and the approval; the settlement only locks the
+  per-auditor balance.

@@ -34,5 +34,8 @@
   the trip legs' actual_cost (cross-subsidy: outbound/return each carry the real ticket shares, their sum is the
   real ticket price).
 - Reports: GET .../realisation/balance and .../realisation/variance (read only, amounts never stored).
-- Settlement (reimbursement/return with approval by finance) is a later batch on realisation_settlement.
+- Settlement: per-auditor via GET|POST .../realisation/settlements. Submitting upserts realisation_settlement
+  (open, unique per assignment+auditor) and creates an approval_task (settlement step 1 = finance_approve,
+  AIDAA.FINANCE, decided from the Approval inbox). Approve settles (status locked, re-submit = 409), reject keeps
+  it open for resubmit. The balance read at render time is authoritative; nothing is stored.
 - Permissions: reads audit.assignment.read, writes audit.assignment.update or audit.assignment.logistics.

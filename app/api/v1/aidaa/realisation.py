@@ -11,6 +11,7 @@ from app.schemas.realisation import (
     AdvanceCreate, AdvanceUpdate, AdvanceOut,
     CostCreate, CostUpdate, CostOut,
     BalanceOut, VarianceOut,
+    SettlementCreate, SettlementOut,
 )
 from app.services import realisation as svc
 from app.services.roles import assert_assignment_visible
@@ -122,3 +123,22 @@ def balance(assignment_id: UUID, db: Session = Depends(get_db), user=Depends(ass
 def variance(assignment_id: UUID, db: Session = Depends(get_db), user=Depends(assignment_read)):
     _resolved(db, user, assignment_id)
     return svc.variance_out(db, assignment_id)
+
+
+# --- Settlements (per-auditor, approved by Finance via the generic approval engine) ---
+
+@router.get("/{assignment_id}/realisation/settlements", response_model=List[SettlementOut])
+def list_settlements(assignment_id: UUID, db: Session = Depends(get_db), user=Depends(assignment_read)):
+    _resolved(db, user, assignment_id)
+    return svc.list_settlements(db, assignment_id)
+
+
+@router.post("/{assignment_id}/realisation/settlements", response_model=SettlementOut, status_code=201)
+def submit_settlement(assignment_id: UUID, payload: SettlementCreate,
+                      db: Session = Depends(get_db), user=Depends(logistics_write)):
+    _can_write(db, user, assignment_id)
+    row = svc.submit_settlement(db, assignment_id, payload, user.user_id)
+    log_audit(db, user.user_id, "realisation.settlement.submit", "realisation_settlement",
+              row["settlement_id"], {"assignment_id": str(assignment_id)})
+    db.commit()
+    return row
