@@ -24,7 +24,15 @@
 - Not created here: daily allowance and lodging (budget lines from the plan or by hand) to avoid double cost.
 - Permissions: audit.assignment.update or audit.assignment.logistics.
 
-## Planned: realisation
-Advance (uang muka), accountability, reimbursement, variance against the budget, and cross-subsidy between outbound and return
-tickets. The design leaves room: legs have actual_cost and the budget line follows it after confirm. Nothing real is recorded
-for daily allowance or lodging yet. Not designed in detail.
+## Realisation (built, batch 1)
+- Records exist only on an assignment in status issued, ongoing or finished (realisation_common.assert_realisable).
+- Advances (uang muka) and real costs (pertanggungjawaban) are PER AUDITOR and must belong to ACTIVE team members.
+- A real cost names a root-scoped component (and optional location). Doors: quantity and unit_rate (>= 0),
+  amount is GENERATED = quantity x unit_rate.
+- Balance is computed in SQL per auditor: advance - realised. Positive = to be returned, negative = additional claim.
+- Variance is computed in SQL per component: planned (approved budget lines) - realised; the realised side includes
+  the trip legs' actual_cost (cross-subsidy: outbound/return each carry the real ticket shares, their sum is the
+  real ticket price).
+- Reports: GET .../realisation/balance and .../realisation/variance (read only, amounts never stored).
+- Settlement (reimbursement/return with approval by finance) is a later batch on realisation_settlement.
+- Permissions: reads audit.assignment.read, writes audit.assignment.update or audit.assignment.logistics.

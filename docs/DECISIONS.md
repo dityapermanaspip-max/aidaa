@@ -45,3 +45,17 @@ Format: date, decision, reason.
 - 2026-10: Editing a trip AI draft is limited to picking the leg destination from the server's airport list and dropping
   rows; the ticket class and half costs are not human-editable in the modal. Reason: on accept the server re-prices from
   approved rates anyway (`TripDraft(**out)` round-trip), so free-form money edits would be silently overwritten.
+- 2026-10: Real costs are recorded PER AUDITOR (each advance and cost row names an active team member), not per
+  assignment. Reason: advances are given and returned per person; the settlement is then per person too.
+- 2026-10: Cross-subsidy is realised by reusing the trip leg `actual_cost` (outbound + return carry the real ticket
+  shares, their sum is the real ticket price) and the variance report compares realised vs planned per component.
+  Reason: no second, hidden ticket table that could diverge from the trip page.
+- 2026-10: Realisation only on issued/ongoing/finished assignments (draft/cancelled are refused), costs and advances
+  must belong to ACTIVE team members, components/locations are validated root-scoped, and balance/variance amounts
+  are computed in the SQL (advance - realised; planned - realised), never stored. Amount on costs is GENERATED.
+- 2026-10: `realisation_settlement` exists now (patch 05) but the workflow is a LATER batch: an approval task for
+  finance transitions open -> settled after the batch that adds tables + per-auditor costs + cross-subsidy is pushed.
+  Reason: the owner wants the granular + cross-subsidy base in main before adding the approval flow.
+- 2026-10: Realisation reads use `audit.assignment.read` and writes `audit.assignment.update` or
+  `audit.assignment.logistics`, same as trips. No new IAM permission. Reason: the people who run trips already
+  manage the money spent on the same assignment.

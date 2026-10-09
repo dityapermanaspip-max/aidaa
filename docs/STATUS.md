@@ -9,10 +9,22 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 ## Written, NOT yet exercised
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
+- **Realisation in the frontend**: the service layer passed a live-DB smoke test (transaction rolled back),
+  the FE tab (Realisasi) exists, but the flow was not exercised in the frontend yet.
 - Trip AI (router and FE now exist, end-to-end not yet exercised), origin_location_id and location_fits change.
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+Realisation feature (batch 1) is now runnable: `sql/aidaa_patch_05_realisation.sql` (applied to the database,
+2026-10) adds `realisation_advance`, `realisation_cost` (amount is a GENERATED column = quantity x unit_rate) and
+`realisation_settlement` (reserved for the settlement approval batch). Backend: `app/schemas/realisation.py`,
+`app/services/realisation_{common,advance,cost,report}.py` and router `app/api/v1/aidaa/realisation.py` mounted
+under `/api/v1/aidaa/assignment` (advances CRUD, cost CRUD, balance, variance; reads `audit.assignment.read` +
+visibility, writes `audit.assignment.update` or `audit.assignment.logistics`). Limits: only active team members
+(`assert_member`), only status issued/ongoing/finished (`assert_realisable`), components/locations root-scoped
+(`assert_cost_ref`), balances and variance computed in SQL. Cross-subsidy reuses the trip leg `actual_cost`.
+FE: `darkhive-fev2` types + `lib/api/aidaa/realisation.ts` + `AssignmentRealisationCard` with a "Realisasi" tab.
+The service layer passed a live-DB smoke test (fixture inside a rolled-back transaction).
 Trip AI is now runnable: `app/api/v1/aidaa/trip_ai.py` added and mounted in `main.py` under
 `/api/v1/aidaa/assignment` (reads: `audit.assignment.read` + visibility; writes generate/decide:
 `audit.assignment.update` or `audit.assignment.logistics`), plus the FE "Usulan AI" modal on the trips tab
@@ -46,7 +58,8 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 ## To do (next)
 1. Test SBM AI with real text, then load real 2027 data (lodging, daily allowance, tickets, road, terminal, in-city transport).
 2. Screen to set audit_setting.base_location_id and to edit auditor grade and home location with codes that match rate grades.
-3. Realisation feature: advance, accountability, reimbursement, variance, cross-subsidy (see domains/trip.md).
+3. Realisation settlement workflow: turn `realisation_settlement` rows into the approval flow (open -> settled via
+   an approval_task for finance), and exercise the whole realisation feature in the FE.
 4. Flag budget lines above the SBM reference with a required reason.
 5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
 6. Wire seeded approval steps (budget verification, assignment_change).
@@ -67,3 +80,5 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - `sql/aidaa_patch_04_org_scope2.sql` has been applied to the database (2026-10): `auditor` and
   `ref_auditable_unit` now carry `root_org_id`, `uq_ref_auditable_unit_root_code` replaced the global
   `unit_code` unique constraint.
+- `sql/aidaa_patch_05_realisation.sql` has been applied to the database (2026-10): the three realisation tables
+  exist; `realisation_settlement` is unused until the settlement approval batch.

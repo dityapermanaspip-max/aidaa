@@ -22,6 +22,9 @@ All sql files are done and safe to rerun. Never edit them unless the owner asks.
    library_pka; codes unique per root; backfill.
 10. aidaa_patch_04_org_scope2.sql  root_org_id on auditor and ref_auditable_unit (same pattern); unit_code unique per
     root instead of the whole database. Run LAST of the patches.
+11. aidaa_patch_05_realisation.sql  realisation_advance, realisation_cost, realisation_settlement (2026-10, applied).
+    realisation_cost.amount is GENERATED (quantity x unit_rate), never insert it. realisation_settlement is reserved
+    for the settlement approval batch (open/settled via approval_task for finance).
 Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 must contain the complete list.
 
 ## Seeds (sql/sql_seed/, data not patches)
@@ -38,6 +41,9 @@ A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit
 - No cleanup loop (IAM does that). Login is IAM only. Auth: token jti not in iam.revoked_tokens and tv equals users.token_version.
 - Engine names: API and frontend use OLLAMA and WEB_API. The ai_suggestion.engine column stores ollama and cloud.
 - budget_line.amount is GENERATED (quantity x unit_rate). Never insert it.
+- realisation_cost.amount is GENERATED (quantity x unit_rate). Never insert it.
+- Balance and variance amounts of realisation are computed in the report SQL (advance - realised,
+  planned - realised), never stored.
 - ref_cost_rate.grade is jsonb (array of codes, NULL or empty means every grade). auditor.grade stays free text.
 - LEGACY, unused: library_pka.default_hours, ref_location.parent_location_id, ref_location.is_branch_office.
 - There is no audit.funding.* permission, funding reuses audit.coststd.*.
