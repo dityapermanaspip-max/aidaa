@@ -66,3 +66,11 @@ Format: date, decision, reason.
   stored: the current balance (advance - realised) is read from the report at render time and snapshot in each
   `SettlementOut` response. Reason: no drift between the report and the approval; the settlement only locks the
   per-auditor balance.
+- 2026-10: AIDAA owns a generic PDF extractor, `app/api/v1/aidaa/doc_extract.py`
+  (`POST /api/v1/aidaa/documents/extract`), mirroring GrIMIS `app/routers/doc_extract.py` instead of reusing
+  IAM's org-import OCR. Reason: IAM's endpoint is gated by the global IAM permission `iam.org.import` (grant
+  drift for AIDAA users) and couples AIDAA to IAM's URL; the "one generic extractor per app" pattern reads a
+  PDF and returns plain text that fills the `source_text` of its own AI helpers (SBM AI, library AI drafts).
+  No file storage, no schema change, no new permission: the endpoint touches no audit data, so authentication
+  alone is enough, and each helper keeps its own write permission. OCR constants live in `app/core/config.py`
+  (`TESSERACT_CMD` only needed if tesseract is not on PATH).

@@ -2,13 +2,22 @@
 
 Last updated: 2026-10. Update this file whenever work changes it.
 
+## demo-ai branch
+Branch `demo-ai` is forked from `main` (same branch name in the other Darkhive repos). Built here: the PDF
+extractor for SBM and library AI drafts (`app/api/v1/aidaa/doc_extract.py`, mirror of GrIMIS doc_extract).
+
 ## Verified by the owner in the frontend
 Master pages, auditor and IAU setting, org scope, units on plans and assignments, Tarif Biaya list (paging, grade filter,
-2026 trial rates visible), rate approval flow screens.
+2026 trial rates visible), rate approval flow screens, PDF import (upload -> source text review) on the SBM AI and
+ library AI pages (2026-10).
 
 ## Written, NOT yet exercised
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
+- PDF import for SBM and library AI drafts: `app/api/v1/aidaa/doc_extract.py` (`POST /api/v1/aidaa/documents/extract`,
+  PyMuPDF text layer + per-page Tesseract fallback, 25 MB cap, 100 pages, no org scope — mirror of GrIMIS),
+  FE upload buttons on `master/sbm-ai` and `master/library/ai`. Upload flow exercised by the owner in the browser
+  (2026-10); the SBM parser shapes with real Lampiran text are still to exercise.
 - **Realisation in the frontend**: the service layer passed a live-DB smoke test (transaction rolled back),
   settlement was smoke-tested (submit -> pending, approve -> settled, reject -> open -> resubmit), but the flow
   was not exercised in the frontend yet.
@@ -16,6 +25,12 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- AI_ENGINE default flipped to `WEB_API` in `app/core/config.py` (was `OLLAMA`); Ollama stays selectable via `AI_ENGINE` env.
+- Approval inbox: `aidaa_core.approval_task` gained dedicated nullable FK columns `plan_id`, `finding_id`, `report_id`,
+  `settlement_id` alongside `record_type`/`record_id`, so the inbox links directly to its record instead of a sliced ID.
+  `create_task` accepts the new columns and auto-derives finding/report/settlement from record_type; plan callers pass
+  `plan_id` explicitly (record_id is a version_id there). `TaskOut` schema carries the new columns.
+  Schema change: `sql/item3_approval_record_columns.sql` (psql one-liner, not yet applied to the live DB).
 Realisation settlement is now runnable: `app/services/settlement.py` + two routes in the realisation router
 (`GET|POST /assignment/{id}/realisation/settlements`). Submitting an auditor's settlement upserts
 `realisation_settlement` (open) and creates an approval_task (`settlement` step 1 = `finance_approve`,
@@ -73,7 +88,8 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 
 ## Known gaps
 - Findings have no unit column.
-- No file storage, documents are url or path metadata only. AI has no PDF upload and no looping above 30000 chars.
+- No file storage, documents are url or path metadata only. AI reads PDFs through `POST /documents/extract`
+  (plain text fills `source_text`, nothing is stored); no looping above 30000 chars.
 - Real daily allowance and lodging spending is not recorded.
 - ROLE_ACTIONS in services/roles.py is a guess.
 - Each root needs an active at_cost component coded TRANSPORT, or a component chosen on every leg.

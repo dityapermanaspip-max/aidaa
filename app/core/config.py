@@ -31,8 +31,15 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
 # Standardized default engine identifiers to match API & DB schemas ("OLLAMA" or "WEB_API")
-_raw_engine = os.getenv("AI_ENGINE", "OLLAMA").upper()
+_raw_engine = os.getenv("AI_ENGINE", "WEB_API").upper()
 AI_ENGINE = "WEB_API" if _raw_engine in ("WEB_API", "CLOUD", "GEMINI") else "OLLAMA"
 
 AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "300"))  # seconds, local models can be slow
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
+
+# PDF extraction (mirror of IAM/GrIMIS values)
+OCR_MAX_PAGES = int(os.getenv("OCR_MAX_PAGES", "100"))
+OCR_DPI = int(os.getenv("OCR_DPI", "300"))
+OCR_LANGS = os.getenv("OCR_LANGS", "ind+eng")
+OCR_MIN_TEXT_PER_PAGE = int(os.getenv("OCR_MIN_TEXT_PER_PAGE", "20"))
+TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")  # only if tesseract is not on PATH
