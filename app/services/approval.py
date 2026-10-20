@@ -9,7 +9,8 @@ from app.schemas.aidaa import TaskDecision
 from app.services.logs import log_approval
 
 _TASK_SQL = """
-    SELECT t.task_id, t.record_type, t.record_id, t.step_id, s.step_no, s.step_code,
+    SELECT t.task_id, t.record_type, t.record_id, t.plan_id, t.finding_id, t.report_id, t.settlement_id,
+           t.step_id, s.step_no, s.step_code,
            s.approver_kind, s.approver_role, t.assigned_user_id, t.requested_by, t.status,
            t.due_date, t.decided_by, t.decided_at, t.decision_note, t.created_at
     FROM aidaa_core.approval_task t
@@ -50,9 +51,20 @@ def get_task(db: Session, task_id: UUID) -> dict:
 
 
 def create_task(db: Session, record_type: str, record_id: UUID, step_no: int, requested_by: UUID,
-                due_date: Optional[date] = None, assigned_user_id: Optional[UUID] = None) -> dict:
+                due_date: Optional[date] = None, assigned_user_id: Optional[UUID] = None,
+                plan_id: Optional[UUID] = None, finding_id: Optional[UUID] = None,
+                report_id: Optional[UUID] = None, settlement_id: Optional[UUID] = None) -> dict:
     """Called by domain services (plan, budget, pka, report), not by a router."""
     step = get_step(db, record_type, step_no)
+    # Auto-derive the dedicated column from record_id when not explicitly passed
+    # (record_id IS the finding/report/settlement id; for plan it is a version_id,
+    # so plan_id must be passed explicitly by the caller).
+    if finding_id is None and record_type == "finding":
+        finding_id = record_id
+    if report_id is None and record_type == "report":
+        report_id = record_id
+    if settlement_id is None and record_type == "settlement":
+        settlement_id = record_id
     dup = db.execute(text("""
         SELECT 1 FROM aidaa_core.approval_task
         WHERE record_type = :rt AND record_id = CAST(:rid AS uuid)
@@ -62,11 +74,18 @@ def create_task(db: Session, record_type: str, record_id: UUID, step_no: int, re
         raise HTTPException(status_code=409, detail="This step already has a pending task")
     row = db.execute(text("""
         INSERT INTO aidaa_core.approval_task
-            (record_type, record_id, step_id, assigned_user_id, requested_by, due_date)
-        VALUES (:rt, CAST(:rid AS uuid), CAST(:sid AS uuid), CAST(:au AS uuid),
-                CAST(:rb AS uuid), :due)
+            (record_type, record_id, plan_id, finding_id, report_id, settlement_id,
+             step_id, assigned_user_id, requested_by, due_date)
+        VALUES (:rt, CAST(:rid AS uuid), CAST(:pid AS uuid), CAST(:fid AS uuid),
+                CAST(:repid AS uuid), CAST(:sid AS uuid),
+                CAST(:stepid AS uuid), CAST(:au AS uuid), CAST(:rb AS uuid), :due)
         RETURNING task_id
-    """), {"rt": record_type, "rid": str(record_id), "sid": str(step["step_id"]),
+    """), {"rt": record_type, "rid": str(record_id),
+           "pid": str(plan_id) if plan_id else None,
+           "fid": str(finding_id) if finding_id else None,
+           "repid": str(report_id) if report_id else None,
+           "sid": str(settlement_id) if settlement_id else None,
+           "stepid": str(step["step_id"]),
            "au": str(assigned_user_id) if assigned_user_id else None,
            "rb": str(requested_by), "due": due_date}).fetchone()
     log_approval(db, record_type, record_id, step["step_code"], "submitted", requested_by)

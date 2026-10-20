@@ -119,6 +119,10 @@ class TaskOut(BaseModel):
     task_id: UUID
     record_type: str
     record_id: UUID
+    plan_id: Optional[UUID] = None
+    finding_id: Optional[UUID] = None
+    report_id: Optional[UUID] = None
+    settlement_id: Optional[UUID] = None
     step_id: UUID
     step_no: int
     step_code: str

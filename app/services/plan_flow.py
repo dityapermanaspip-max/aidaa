@@ -80,7 +80,7 @@ def submit_plan(db: Session, plan_id: UUID, payload: PlanSubmit, user_id: UUID) 
         WHERE plan_id = CAST(:p AS uuid)
     """), {"v": next_no, "uid": str(user_id), "p": str(plan_id)})
 
-    create_task(db, "plan", row.version_id, 1, user_id, due_date=payload.due_date)
+    create_task(db, "plan", row.version_id, 1, user_id, due_date=payload.due_date, plan_id=plan_id)
     log_status(db, "plan_version", row.version_id, None, "pending", user_id)
     return get_version(db, row.version_id)
 
@@ -100,7 +100,7 @@ def _on_plan_task(db: Session, task: dict, user_id: UUID):
         return
 
     if task["step_no"] == 1:  # Finance verified, now the Board. Requester stays the submitter.
-        create_task(db, "plan", version["version_id"], 2, version["created_by"])
+        create_task(db, "plan", version["version_id"], 2, version["created_by"], plan_id=version["plan_id"])
         return
 
     # step 2: Board approved
