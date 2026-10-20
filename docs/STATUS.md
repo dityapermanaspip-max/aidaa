@@ -30,7 +30,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   `settlement_id` alongside `record_type`/`record_id`, so the inbox links directly to its record instead of a sliced ID.
   `create_task` accepts the new columns and auto-derives finding/report/settlement from record_type; plan callers pass
   `plan_id` explicitly (record_id is a version_id there). `TaskOut` schema carries the new columns.
-  Schema change: `sql/item3_approval_record_columns.sql` (psql one-liner, not yet applied to the live DB).
+  Schema change: `sql/item3_approval_record_columns.sql` (psql one-liner, applied to the live DB; presence of the
+  four columns verified via information_schema, 2026-10).
 Realisation settlement is now runnable: `app/services/settlement.py` + two routes in the realisation router
 (`GET|POST /assignment/{id}/realisation/settlements`). Submitting an auditor's settlement upserts
 `realisation_settlement` (open) and creates an approval_task (`settlement` step 1 = `finance_approve`,
