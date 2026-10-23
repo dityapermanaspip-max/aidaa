@@ -74,3 +74,10 @@ Format: date, decision, reason.
   No file storage, no schema change, no new permission: the endpoint touches no audit data, so authentication
   alone is enough, and each helper keeps its own write permission. OCR constants live in `app/core/config.py`
   (`TESSERACT_CMD` only needed if tesseract is not on PATH).
+- 2026-10-23: The WEB_API cloud branch of `app/services/ai_engine.py` now calls any OpenAI-compatible chat API
+  (`POST {WEB_API_BASE_URL}/chat/completions`, Bearer auth, `response_format: json_object`) instead of Gemini
+  REST. Default base `https://api.deepseek.com`, model `deepseek-flash`, DeepSeek thinking disabled by default
+  (`WEB_API_THINKING` env). New env keys `WEB_API_KEY` / `WEB_API_BASE_URL` / `WEB_API_MODEL` / `WEB_API_THINKING`;
+  `GEMINI_*` stays in config but is unused by the engine. Reason: `generativelanguage.googleapis.com` is not
+  reachable from the Tencent Cloud deployment, and the OpenAI-compatible shape keeps any future provider a pure
+  `.env` switch. The retry 429/503 + real-error-text pattern and `_clean_json` fence stripping are unchanged.

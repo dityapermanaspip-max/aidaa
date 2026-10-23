@@ -30,6 +30,14 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
+# Cloud engine behind WEB_API: any OpenAI-compatible provider (default DeepSeek).
+WEB_API_KEY = os.getenv("WEB_API_KEY", "").strip() or None
+WEB_API_BASE_URL = os.getenv("WEB_API_BASE_URL", "https://api.deepseek.com").strip().rstrip("/")
+WEB_API_MODEL = os.getenv("WEB_API_MODEL", "deepseek-flash")
+# "enabled"|"disabled" (DeepSeek thinking toggle); any other value omits the field for strict providers.
+_raw_thinking = os.getenv("WEB_API_THINKING", "disabled").strip().lower()
+WEB_API_THINKING = _raw_thinking if _raw_thinking in ("enabled", "disabled") else ""
+
 # Standardized default engine identifiers to match API & DB schemas ("OLLAMA" or "WEB_API")
 _raw_engine = os.getenv("AI_ENGINE", "WEB_API").upper()
 AI_ENGINE = "WEB_API" if _raw_engine in ("WEB_API", "CLOUD", "GEMINI") else "OLLAMA"

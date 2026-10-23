@@ -19,8 +19,10 @@ AI calls use urllib from the standard library (services/ai_engine.py). Versions 
 
 ## Settings (.env key names only, the AIDAA .env is its OWN file)
 DH_DB_HOST, DH_DB_PORT, DH_DB_NAME, DH_DB_USER, DH_DB_PASSWORD, APP_PORT, JWT_SECRET_KEY (32+ chars), JWT_ALGORITHM,
-JWT_EXPIRE_MINUTES, OLLAMA_URL, OLLAMA_MODEL (default gemma4:e4b), GEMINI_API_KEY, GEMINI_MODEL (default gemini-flash-latest),
-AI_ENGINE (OLLAMA or WEB_API, default OLLAMA), AI_TIMEOUT (seconds, default 300). core/config.py reads them.
+JWT_EXPIRE_MINUTES, OLLAMA_URL, OLLAMA_MODEL (default gemma4:e4b), WEB_API_KEY, WEB_API_BASE_URL (default https://api.deepseek.com),
+WEB_API_MODEL (default deepseek-flash), WEB_API_THINKING (enabled/disabled, default disabled; other values omit
+the field), GEMINI_API_KEY, GEMINI_MODEL (legacy, unused by the engine since 2026-10-23),
+AI_ENGINE (OLLAMA or WEB_API, default WEB_API), AI_TIMEOUT (seconds, default 300). core/config.py reads them.
 Keys set in the IAM or GrIMIS .env do not reach AIDAA.
 
 ## Glossary

@@ -25,6 +25,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-23: WEB_API cloud engine now calls any OpenAI-compatible provider (DeepSeek default, `deepseek-flash`,
+  thinking disabled default) in `app/services/ai_engine.py`; new env keys `WEB_API_KEY` / `WEB_API_BASE_URL` /
+  `WEB_API_MODEL` / `WEB_API_THINKING` (`GEMINI_API_KEY` no longer used by the engine). Ollama unchanged.
 - AI_ENGINE default flipped to `WEB_API` in `app/core/config.py` (was `OLLAMA`); Ollama stays selectable via `AI_ENGINE` env.
 - Approval inbox: `aidaa_core.approval_task` gained dedicated nullable FK columns `plan_id`, `finding_id`, `report_id`,
   `settlement_id` alongside `record_type`/`record_id`, so the inbox links directly to its record instead of a sliced ID.

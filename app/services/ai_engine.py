@@ -1,7 +1,6 @@
 import json
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from typing import Optional
 from fastapi import HTTPException
@@ -56,22 +55,24 @@ def generate_json(prompt: str, engine: Optional[str] = None, model: Optional[str
                     {"model": used, "prompt": prompt, "stream": False, "format": "json"}, {})
         answer = raw.get("response", "")
     elif chosen == "cloud":
-        if not config.GEMINI_API_KEY:
-            raise HTTPException(status_code=503, detail="Cloud AI is not configured (GEMINI_API_KEY is empty in the AIDAA .env)")
-        used = (model or config.GEMINI_MODEL).strip()
-        raw = _call(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(used, safe='-._')}:generateContent",
-            {"contents": [{"parts": [{"text": prompt}]}],
-             "generationConfig": {"responseMimeType": "application/json"}},
-            {"x-goog-api-key": config.GEMINI_API_KEY})
-        cands = raw.get("candidates") or []
-        if not cands:
-            reason = (raw.get("promptFeedback") or {}).get("blockReason", "no candidates")
-            raise HTTPException(status_code=502, detail=f"Cloud AI returned no answer ({reason})")
-        parts = (cands[0].get("content") or {}).get("parts") or []
-        answer = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        if not config.WEB_API_KEY:
+            raise HTTPException(status_code=503, detail="Cloud AI is not configured (WEB_API_KEY is empty in the AIDAA .env)")
+        used = (model or config.WEB_API_MODEL).strip()
+        body: dict = {"model": used,
+                      "messages": [{"role": "user", "content": prompt}],
+                      "response_format": {"type": "json_object"},
+                      "stream": False}
+        if config.WEB_API_THINKING:  # DeepSeek thinking toggle; omitted entirely for other providers
+            body["thinking"] = {"type": config.WEB_API_THINKING}
+        raw = _call(f"{config.WEB_API_BASE_URL}/chat/completions", body,
+                    {"Authorization": f"Bearer {config.WEB_API_KEY}"})
+        choices = raw.get("choices") or []
+        if not choices:
+            err = raw.get("error") or raw
+            raise HTTPException(status_code=502, detail=f"Cloud AI returned no answer ({err})")
+        answer = ((choices[0].get("message") or {}).get("content") or "").strip()
         if not answer:
-            raise HTTPException(status_code=502, detail=f"Cloud AI returned an empty answer ({cands[0].get('finishReason')})")
+            raise HTTPException(status_code=502, detail=f"Cloud AI returned an empty answer ({choices[0].get('finish_reason')})")
     else:
         raise HTTPException(status_code=503, detail="AI_ENGINE must be OLLAMA or WEB_API")
     try:
