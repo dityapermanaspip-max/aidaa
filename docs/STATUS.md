@@ -88,6 +88,11 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25: Hygiene batch. Verified NO route clash for `/assignment/{id}/funding`: budgeting is mounted
+  at the bare API prefix, the assignment router has no 3-segment paths, and no other `/assignment`-prefixed
+  router defines funding routes (the stale known-gaps bullets are gone). The library_ai duplicate GET
+  `/library/ai/drafts` no longer exists. Dropped the unused guessed ROLE_ACTIONS layer and the `actions`
+  field of `GET /me/assignments/{id}/role` (`AssignmentAccessOut` slimmed; FE `MyAccess` type updated).
 - 2026-10-23: WEB_API cloud engine now calls any OpenAI-compatible provider (DeepSeek default, `deepseek-flash`,
   thinking disabled default) in `app/services/ai_engine.py`; new env keys `WEB_API_KEY` / `WEB_API_BASE_URL` /
   `WEB_API_MODEL` / `WEB_API_THINKING` (`GEMINI_API_KEY` no longer used by the engine). Ollama unchanged.
@@ -169,11 +174,12 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - No file storage, documents are url or path metadata only. AI reads PDFs through `POST /documents/extract`
   (plain text fills `source_text`, nothing is stored); no looping above 30000 chars.
 - Real daily allowance and lodging spending is not recorded.
-- ROLE_ACTIONS in services/roles.py is a guess.
 - Each root needs an active at_cost component coded TRANSPORT, or a component chosen on every leg.
+- The guessed ROLE_ACTIONS/BOUND/actions matrix in `services/roles.py` was removed (2026-10-25): no
+  router enforced it and no consumer read `actions` (the FE gates buttons on assignment_role,
+  is_auditee_pic and context permissions). Write gates live only in the routers;
+  `GET /me/assignments/{id}/role` lost its `actions` field.
 - Auditors without a grade match only rates with an empty grade list.
-- The library_ai router may still have a duplicate GET /library/ai/drafts (delete the second function).
-- Verify that budgeting's /assignment/{id}/funding does not clash with the assignment router.
 - **Trip AI is runnable but end-to-end not exercised**: `app/api/v1/aidaa/trip_ai.py` is mounted (`/assignment/{id}/ai/trip/drafts`),
   the frontend modal exists ("Usulan AI" on the trips tab), but the flow was not run against a live AI engine yet (2026-10).
 - `GET /pka/{id}` is mounted but the frontend never calls it (the assignment list is enough).

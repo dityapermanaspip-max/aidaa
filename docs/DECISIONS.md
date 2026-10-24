@@ -188,3 +188,13 @@ Format: date, decision, reason.
   page `/q/[token]` lives OUTSIDE the `(app)` auth group and talks through a new no-auth BFF
   forwarder `src/app/api/aidaa-public/[...path]` (the existing aidaa proxy 401s without a dh_token
   cookie), noted in the FE docs/security.md.
+- 2026-10-25: The guessed ROLE_ACTIONS/BOUND matrix in `services/roles.py` is deleted.
+  `get_my_access` (`GET /me/assignments/{id}/role`) now returns only `assignment_role`,
+  `is_auditee_pic` and `global_roles`, keeping the existing scope probe (403 when the caller holds no
+  `audit.*` permission on the owner org or their PIC unit orgs). Reason: no consumer existed — every FE
+  assignment card gates on `assignment_role`, `is_auditee_pic` and context permissions — and several
+  listed codes were never enforced by any router while the actually enforced ones were not all listed;
+  a second copy of the routers' gate matrix could only drift. The same sweep verified there is no route
+  clash around `/assignment/{id}/funding` (budgeting is mounted at the bare API prefix and no other
+  `/assignment`-prefixed router defines funding routes) and that the library_ai duplicate
+  `GET /library/ai/drafts` no longer exists.

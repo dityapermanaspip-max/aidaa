@@ -4,28 +4,9 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-_MEMBER = {
-    "audit.assignment.read", "audit.team.read", "audit.budget.read", "audit.deviation.read",
-    "audit.task.read", "audit.pka.read", "audit.pka.create", "audit.pka.update",
-    "audit.paper.read", "audit.paper.create", "audit.paper.update",
-    "audit.finding.read", "audit.finding.create", "audit.finding.update",
-    "audit.rekomend.read", "audit.rekomend.create", "audit.rekomend.update",
-    "audit.report.read",
-}
-_LEADER = _MEMBER | {
-    "audit.paper.review", "audit.budget.draft", "audit.finding.communicate",
-    "audit.report.create", "audit.report.update",
-}
-_SUPERVISOR = _MEMBER | {
-    "audit.paper.review", "audit.pka.approve", "audit.finding.approve",
-    "audit.rekomend.close", "audit.assignment.approve_change", "audit.team.approve_replace",
-    "audit.finding.communicate",
-}
-
-# Starting matrix, adjust to the real rules.
-ROLE_ACTIONS = {"member": _MEMBER, "leader": _LEADER, "supervisor": _SUPERVISOR}
-BOUND = set().union(*ROLE_ACTIONS.values())  # codes that need an assignment role (unless read)
-AUDITEE_ONLY = {"audit.finding.respond", "audit.rekomend.followup"}
+# Write permission gates live in the routers (require_permission + authorize_assignment role
+# checks). The old guessed ROLE_ACTIONS/BOUND/actions matrix was removed (2026-10-25): nothing
+# consumed it and it had drifted from the real gates.
 
 
 def my_assignment_role(db: Session, user_id: UUID, assignment_id: UUID) -> Optional[str]:
@@ -115,26 +96,20 @@ def get_my_access(db: Session, user_id: UUID, assignment_id: UUID) -> dict:
     scope = assignment_scope(db, assignment_id)
     role = my_assignment_role(db, user_id, assignment_id)
     pic_orgs = pic_unit_orgs(db, user_id, scope["unit_org_ids"])
-    pic = bool(pic_orgs)
 
+    # Scope probe on the owner org plus the caller's PIC unit orgs: no effective audit.*
+    # permission there means 403.
     codes = _perm_codes(db, user_id, scope["owner_org_id"])
     for org_id in pic_orgs:
         codes |= _perm_codes(db, user_id, org_id)
     if not codes:
         raise HTTPException(status_code=403, detail="No access to this assignment")
 
-    allowed_by_role = ROLE_ACTIONS.get(role, set())
-    actions = {
-        c for c in codes
-        if (c.endswith(".read") or c not in BOUND or c in allowed_by_role)
-        and (c not in AUDITEE_ONLY or pic)
-    }
     return {
         "assignment_id": assignment_id,
         "assignment_role": role,
-        "is_auditee_pic": pic,
+        "is_auditee_pic": bool(pic_orgs),
         "global_roles": _global_roles(db, user_id),
-        "actions": sorted(actions),
     }
 
 
