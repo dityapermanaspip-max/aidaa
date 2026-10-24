@@ -50,6 +50,31 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   reads `authorize_view` with `audit.finding.read` and PIC lists org-filtered. FE:
   `/dashboard/aidaa/exec/korespondensi` (Penugasan menu, after "Tim Audit") with three cards.
   Import check passes; NOT exercised in the browser and DDL not yet run.
+- **Kuesioner (2026-10-24)**: procedure-linked questionnaires. DDL = `sql/aidaa_patch_07_kuesioner.sql`
+  (numbered 07; **written, NOT yet run by the owner — run locally then on the VPS, after patch 06**).
+  It adds `needs_questionnaire` to `aidaa_core.exe_procedure` plus four tables: `assignment_questionnaire`
+  (ONE per procedure via a UNIQUE `procedure_id`; status draft→issued→closed; `respondents_needed`;
+  `public_token` uuid + `link_expires_at`), `questionnaire_question` (≤5 per questionnaire, kinds
+  single_choice/multi_select/free_text/scale, `choices` jsonb 2–5, `scale_max` 4/5/6),
+  `questionnaire_response` (identity block name/position/age/last_degree/gender + `submitted_via`
+  public|pic, `submitted_by` NULL for anonymous), `questionnaire_answer` (one row per question per
+  response). New service `app/services/execution/questionnaires.py`, router
+  `app/api/v1/aidaa/questionnaires.py` (mounted with ROOT_SCOPED) and the first UNAUTHENTICATED
+  router `app/api/v1/aidaa/public.py` (`GET|POST /public/questionnaires/{token}`, mounted WITHOUT
+  ROOT_SCOPED). Team planning `GET /assignment/{id}/questionnaire-procedures` (every non-skipped
+  procedure LEFT JOINed with its questionnaire), `PATCH /procedures/{id}/needs-questionnaire`
+  (flag toggle, ROLES_WORK), questionnaire CRUD + questions CRUD (draft-only), batch
+  `POST /assignment/{id}/questionnaires/issue` (LEADER; 422 listing flagged procedures that still
+  lack questions), `close`, `regenerate` (fresh token + 40h window, old token dies instantly, team or
+  PIC), `GET /questionnaire/{id}/results` (team-only evidence aggregates) and
+  `POST /questionnaire/{id}/responses` (auditee PIC in-app). Public answering validates every
+  question once, per-kind bounds, and accepts responses while issued + assignment workable; public
+  submissions write no audit log. Permission reuse only (assignment.update + ROLES_WORK/ROLES_LEAD,
+  finding.respond + authorize_pic for the PIC, finding.read + authorize_view for reads). FE:
+  fourth card on `/dashboard/aidaa/exec/korespondensi` (`KorespondensiQuestionnaireCard`: coverage
+  strip + per-procedure checkbox + builder + batch issue + results; PIC list + in-app entry) plus the
+  no-auth public page `/q/[token]` and the no-auth BFF forwarder `/api/aidaa-public/[...path]`.
+  Import check + `npx tsc --noEmit` pass; NOT exercised in the browser and DDL not yet run.
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
 - PDF import for SBM and library AI drafts: `app/api/v1/aidaa/doc_extract.py` (`POST /api/v1/aidaa/documents/extract`,
@@ -133,14 +158,11 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    then on the VPS (endpoints error out until then), restart the backend, then the browser pass (doc-req
    lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
    roles `audit.finding.read` org-mapped (same mapping Monev needs).
-8. Kuesioner: designed with the owner 2026-10-24, refined same day (one per PKA procedure, max 5 questions,
-   single/multi choice of 5, free text, scale per-question 1-4/1-5/1-6; `needs_questionnaire` flag on the
-   procedure copy; BATCH issue blocked until every marked procedure has questions; team leader sets
-   `respondents_needed`, the PIC spreads a PUBLIC LINK (first unauthenticated AIDAA route, token-based),
-   shared counter of finished responses vs target; token expires 40h after generation, regeneration
-   (team or PIC) mints a fresh token and restarts the window; responses accepted past target, counter
-   shows the raw pair like 12/5). Evidence-first, no automatic findings or working
-   papers; AI helpers later. Awaiting the owner's "go code" + DDL patch 07 - see DECISIONS.md.
+8. Kuesioner (built 2026-10-24, owner test pending): run `sql/aidaa_patch_07_kuesioner.sql` locally
+   then on the VPS (after patch 06), restart the backend, then the browser pass (flag a procedure,
+   build ≤5 questions, leader batch issue, copy the public link, answer anonymously on /q/[token],
+   PIC in-app entry, results, regenerate/close). AI helpers (creator + working-paper-from-answers)
+   are deferred; see DECISIONS.md.
 
 ## Known gaps
 - Findings have no unit column.
@@ -166,3 +188,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - `sql/aidaa_patch_06_korespondensi.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
   (locally, then on the VPS) every Korespondensi endpoint 500s on missing tables, and `resolve_finding`
   would 409 on every responded finding (the gate query would fail; run the patch BEFORE testing).
+- `sql/aidaa_patch_07_kuesioner.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
+  (locally, then on the VPS, after patch 06) every Kuesioner endpoint 500s on missing tables; the
+  public `/q/[token]` page and the BFF `/api/aidaa-public/[...path]` forwarder depend on it too.

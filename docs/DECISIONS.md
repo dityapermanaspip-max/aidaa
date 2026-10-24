@@ -177,3 +177,14 @@ Format: date, decision, reason.
   pair (e.g. "12/5" with a target-reached marker). Owner confirmed the 5-question cap ("easier for the
   AI too" - the later AI questionnaire creator also works within it). The workable-end stop stands as
   the default. Design is COMPLETE; still awaiting the owner's "go code" before any DDL/code is written.
+- 2026-10-24 Batch 07 implemented (after the owner's "go code"): `sql/aidaa_patch_07_kuesioner.sql`
+  (idempotent ALTER + 4 new tables), `app/services/execution/questionnaires.py`, router
+  `app/api/v1/aidaa/questionnaires.py` (mounted ROOT_SCOPED) and the first unauthenticated router
+  `app/api/v1/aidaa/public.py` mounted WITHOUT ROOT_SCOPED (verified `resolve_root` depends on
+  `get_current_user`, so the public router declares only `get_db`). The public surface returns only
+  questionnaire text/questions + progress counts; anonymous submissions never write log_audit and
+  keep submitted_by NULL. The needs_questionnaire toggle reuses the procedure-edit gate family
+  (procedure not skipped, status planned/in_progress); the batch issue is ROLES_LEAD. The FE public
+  page `/q/[token]` lives OUTSIDE the `(app)` auth group and talks through a new no-auth BFF
+  forwarder `src/app/api/aidaa-public/[...path]` (the existing aidaa proxy 401s without a dh_token
+  cookie), noted in the FE docs/security.md.
