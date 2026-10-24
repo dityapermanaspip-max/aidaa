@@ -210,3 +210,34 @@ Format: date, decision, reason.
   reviewer is resolved); ONE pending request per assignment; rejected and returned both end the
   request (file a new one); cancelling is the requester's, while still pending. Filing is
   leader-only; extra units re-run unit and conflict checks exactly like drafts.
+
+## 2026-10-25 (continued): AI helpers batch - SBM grade mode, team, library_improvement, expertise_extract
+
+- SBM one-column-per-grade tables are parsed by a SECOND MODE of the same helper, not a new endpoint:
+  `SbmNaming`/`SbmDraft` gained `column_kind` ('component' | 'grade') and `grade_columns` (heading -> grade code,
+  UPPER_SNAKE_CASE). In grade mode the AI names exactly ONE component and one grade code per amount column; each
+  rate carries a single-element grade list and accept still writes only DRAFT rates (Finance submits, Board
+  approves). Reason: such annexes are one cost priced per grade column; a mode keeps one review surface and the
+  component mode untouched. `sbm_ai.py` was split under the 300-line cap (`sbm_ai_parse.py`, `sbm_ai_apply.py`).
+- The team helper is VIEW-ONLY by design: it ranks candidates from the real roster (active auditors of the root
+  holding the AIDAA.AUDITOR IAM role through iam.active_user_roles, current team members excluded, with verified
+  skills and open-audit counts in the period), validates every suggested id against that roster (an invented person
+  is a 502) and only records the decision on accept. Reason: team composition stays the leader's judgement call;
+  the roster carries the verified-skills and workload facts the suggestion needs.
+- Expertise extraction is OWNER-ONLY (the auditor extracts their own credentials, `_assert_owner` +
+  `expertise_create`, same rule as the manual create) and routes verification through the SEEDED step record_type
+  'expertise' step 1 'hr_verify' (AIDAA.HR global role): accept inserts the pending rows with source
+  'ai_suggestion' + ai_suggestion_id and opens ONE task for the whole batch; the registered handler verifies or
+  rejects every still-pending row of that batch, so HR sees one row, not ten. Reason: verification stays in the
+  generic approval inbox and the requester-cannot-decide rule holds; AI dates are kept only when they match
+  YYYY-MM-DD (sloppy dates are dropped, not rejected).
+- Library improvement REPLACES the head row on accept: a NEW library_pka takes the next `<type>-NNN` code with the
+  improved procedures, the old head is deactivated (its procedures stay attached - same as the manual deactivate)
+  and both heads are logged. Reason: procedure history and code stability; root scoping goes through
+  ref_audit_type because library_pka has no root_org_id.
+- Hard guards keep the queues small: ONE pending improvement per library PKA and ONE pending extraction task per
+  auditor (both 409).
+- New DDL patch 09 (`sql/aidaa_patch_09_expertise_ai.sql`, idempotent): `expertise.ai_suggestion_id` +
+  'ai_suggestion' added to the source CHECK. The feature CHECK already knew all the new feature names (patch 02),
+  so no other DDL was needed. The acceptance of a suggestion whose batch spans rows is logged per row
+  (log_status) and the HR decision per batch as a comment.

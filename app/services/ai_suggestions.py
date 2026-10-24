@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.ai import PkaSuggestion, ReportSuggestion, SuggestionDecision
 from app.schemas.execution import ReportCreate
+from app.schemas.team_ai import TeamSuggestion
 from app.services.ai_engine import generate_json
 from app.services.assignments import get_assignment
 from app.services.execution_flow import create_report
@@ -14,7 +15,7 @@ from app.services.logs import log_status, log_edit
 
 _COLS = ("suggestion_id, feature, record_type, record_id, engine, model_name, input_ref, output, "
          "status, decided_by, decided_at, created_by, created_at")
-_MODELS = {"pka": PkaSuggestion, "report": ReportSuggestion}
+_MODELS = {"pka": PkaSuggestion, "report": ReportSuggestion, "team": TeamSuggestion}
 _OPEN = ("draft", "issued", "ongoing")
 
 
@@ -141,6 +142,14 @@ def _apply_report(db: Session, s: dict, out: dict, user_id: UUID):
 
 
 _APPLY = {"pka": _apply_pka, "report": _apply_report}
+
+
+def _apply_team(db: Session, s: dict, out: dict, user_id: UUID):
+    """View-only helper: acceptance records the decision only, no team rows are written."""
+    return None
+
+
+_APPLY["team"] = _apply_team
 
 
 def decide(db: Session, suggestion_id: UUID, payload: SuggestionDecision, user_id: UUID) -> dict:

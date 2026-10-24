@@ -75,6 +75,22 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   strip + per-procedure checkbox + builder + batch issue + results; PIC list + in-app entry) plus the
   no-auth public page `/q/[token]` and the no-auth BFF forwarder `/api/aidaa-public/[...path]`.
   Import check + `npx tsc --noEmit` pass; NOT exercised in the browser and DDL not yet run.
+- **AI helpers batch (2026-10-25)**: the three remaining helpers plus the SBM grade mode are built end to end
+  (backend + FE); import check and `npx tsc --noEmit` pass; NOT exercised in the browser yet.
+  - SBM grade mode: one component per grade-column table, `grade_columns` maps heading -> grade code, rates carry a
+    single grade, accept still writes DRAFT rates only (`sbm_ai` split into `sbm_ai_parse` + `sbm_ai_apply`).
+  - team: view-only ranked shortlist, `POST /assignment/{id}/ai/team-suggestions` (leader-only); roster = active
+    auditors of the root holding the AIDAA.AUDITOR IAM role, current members excluded; acceptance only records the
+    decision; FE `TeamSuggestionPanel` on the assignment team card.
+  - library_improvement: `POST /library/pka/{id}/ai-improvement` (`library_manage`), ONE pending per PKA, accept
+    deactivates the old head and creates a new `<type>-NNN` head with the improved procedures; FE
+    `LibraryImprovementSection` on the library detail page.
+  - expertise_extract: the auditor extracts their OWN credentials (`POST /master/auditors/{id}/expertise/ai-suggestions`);
+    accept inserts pending rows (source 'ai_suggestion') and opens ONE `expertise`/`hr_verify` task for AIDAA.HR; the
+    approval handler decides the whole batch together; FE `ExpertiseAiCard` (owner-only) on the auditor page; the
+    approval inbox links the auditor of the batch's first row.
+  - **DDL `sql/aidaa_patch_09_expertise_ai.sql` must run first** (adds `expertise.ai_suggestion_id` and widens the
+    source CHECK) - until then generate/list work but ACCEPT fails with 500.
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
 - PDF import for SBM and library AI drafts: `app/api/v1/aidaa/doc_extract.py` (`POST /api/v1/aidaa/documents/extract`,
@@ -168,7 +184,10 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    owner match the approved rate grades.
 3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
 4. Flag budget lines above the SBM reference with a required reason.
-5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
+5. (Built 2026-10-25, owner pass pending) AI helpers: library_improvement, team, expertise_extract + the
+   one-column-per-grade SBM parser. Owner steps: run `sql/aidaa_patch_09_expertise_ai.sql` locally then on the VPS
+   (after patches 06/07/08), restart the backend, then the browser pass over the four surfaces (details in
+   "Written, NOT yet exercised").
 6. (Built 2026-10-25, owner pass pending) Approval wiring (item 6 done): run
    `sql/aidaa_patch_08_change_requests.sql` locally then on the VPS, restart, then the browser pass -
    leader files a change on an issued assignment -> supervisor decides in Kotak Persetujuan -> fields
@@ -215,3 +234,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - `sql/aidaa_patch_08_change_requests.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
   (locally, then on the VPS) every change-request endpoint 500s on the missing `assignment_change`
   table; the budget-verification flow does NOT need it.
+- `sql/aidaa_patch_09_expertise_ai.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
+  (locally, then on the VPS, after patches 06/07/08) the expertise extraction accept step (and the HR
+  task handler) fails with 500 on the missing `ai_suggestion_id` column; generate and list still work.

@@ -48,6 +48,21 @@ class SbmComponent(BaseModel):
     column: str = Field(..., min_length=1, max_length=200)  # table column heading, example "FULLDAY"
 
 
+def _grade_code(v):
+    """Grade codes arrive with spaces; normalize like SbmRate.grade does, then Field caps the length."""
+    if v is None:
+        raise ValueError("a grade column needs a grade code")
+    return str(v).strip().upper().replace(" ", "_")
+
+
+class SbmGradeColumn(BaseModel):
+    """One column of a one-column-per-grade table: the heading mapped to a grade code."""
+    column: str = Field(..., min_length=1, max_length=200)  # table column heading, example "Golongan III"
+    code: str = Field(..., min_length=1, max_length=30)     # grade code, UPPER_SNAKE_CASE
+
+    _c = field_validator("code", mode="before")(_grade_code)
+
+
 class SbmBlock(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)  # example "b. Pejabat Eselon I dan II"
     grades: List[str] = []  # empty = all grades
@@ -56,8 +71,11 @@ class SbmBlock(BaseModel):
 
 
 class SbmNaming(BaseModel):
+    # component: each amount column is one cost component. grade: ONE component, one column per official grade.
+    column_kind: Literal["component", "grade"] = "component"
     components: List[SbmComponent] = Field(..., min_length=1)
     blocks: List[SbmBlock] = Field(..., min_length=1)
+    grade_columns: List[SbmGradeColumn] = []  # only in grade mode, one entry per grade column in column order
 
 
 # A place used by the rates. location_id is set when an existing location matched, empty means it will be created.
@@ -86,8 +104,10 @@ class SbmDraft(BaseModel):
     effective_from: date
     effective_to: Optional[date] = None
     shape: str = "province"  # province, road, route or single
+    column_kind: str = "component"  # component or grade, see SbmNaming
     components: List[SbmComponent] = Field(..., min_length=1)
     blocks: List[SbmBlock] = []
+    grade_columns: List[SbmGradeColumn] = []
     places: List[SbmPlace] = []
     rates: List[SbmRate] = Field(..., min_length=1)
     unknown_provinces: List[str] = []  # rows or places the parser skipped, with the reason

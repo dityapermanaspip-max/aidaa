@@ -13,7 +13,10 @@ from app.schemas.aidaa import (
     ExpertiseCreate, ExpertiseUpdate, ExpertiseVerify, ExpertiseOut,
     DocumentCreate, DocumentOut,
 )
+from app.schemas.ai import SuggestionDecision, SuggestionOut
+from app.schemas.expertise_ai import ExpertiseExtractRequest
 from app.services import masters_auditor as svc
+from app.services import expertise_ai as esvc
 
 router = APIRouter()
 
@@ -91,6 +94,39 @@ def verify_expertise(expertise_id: UUID, payload: ExpertiseVerify,
     row = svc.verify_expertise(db, expertise_id, payload, user.user_id)
     log_audit(db, user.user_id, f"expertise.{payload.decision}", "expertise", expertise_id,
               payload.model_dump(mode="json"))
+    db.commit()
+    return row
+
+
+@router.get("/expertise/{expertise_id}", response_model=ExpertiseOut)
+def get_expertise(expertise_id: UUID, db: Session = Depends(get_db), user=Depends(expertise_read)):
+    return svc.get_expertise(db, expertise_id, user.user_id)
+
+
+# --- Expertise AI extraction (feature 'expertise_extract', seeded step record_type 'expertise') ---
+
+@router.post("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=SuggestionOut, status_code=201)
+def extract_expertise(auditor_id: UUID, payload: ExpertiseExtractRequest,
+                      db: Session = Depends(get_db), user=Depends(expertise_create)):
+    row = esvc.generate_extract(db, auditor_id, payload, user.user_id)
+    log_audit(db, user.user_id, "expertise.ai_extract", "ai_suggestion", row["suggestion_id"],
+              {"auditor_id": str(auditor_id), "engine": row["engine"], "model": row["model_name"]})
+    db.commit()
+    return row
+
+
+@router.get("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=List[SuggestionOut])
+def list_expertise_ai(auditor_id: UUID, status: Optional[str] = Query(None),
+                      db: Session = Depends(get_db), user=Depends(expertise_read)):
+    return esvc.list_extracts(db, user.user_id, auditor_id, status)
+
+
+@router.post("/expertise-ai-suggestions/{suggestion_id}/decide", response_model=SuggestionOut)
+def decide_expertise_ai(suggestion_id: UUID, payload: SuggestionDecision,
+                        db: Session = Depends(get_db), user=Depends(expertise_create)):
+    row = esvc.decide_extract(db, suggestion_id, payload, user.user_id)
+    log_audit(db, user.user_id, f"expertise.ai_suggestion_{payload.decision}", "ai_suggestion", suggestion_id,
+              {"feature": "expertise_extract"})
     db.commit()
     return row
 

@@ -5,15 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.api.dependencies import (
-    get_current_user, pka_read, pka_create, report_create, authorize_assignment, authorize_view,
-    log_audit, ROLES_WORK, ROLES_LEAD,
+    get_current_user, pka_read, pka_create, report_create, team_manage,
+    authorize_assignment, authorize_view, log_audit, ROLES_WORK, ROLES_LEAD,
 )
 from app.schemas.ai import AiRequest, ModelsOut, SuggestionDecision, SuggestionOut
 from app.services import ai_suggestions as svc
+from app.services import team_ai as tsvc
 from app.services.ai_engine import list_ollama_models
 
 router = APIRouter()
-_AUTH = {"pka": ("audit.pka.create", ROLES_WORK), "report": ("audit.report.create", ROLES_LEAD)}
+_AUTH = {"pka": ("audit.pka.create", ROLES_WORK), "report": ("audit.report.create", ROLES_LEAD),
+         "team": ("audit.team.manage", ("leader",))}
 
 
 def _team_only(db: Session, user, code: str, assignment_id: UUID):
@@ -45,6 +47,18 @@ def suggest_report(assignment_id: UUID, payload: Optional[AiRequest] = None,
     p = payload or AiRequest()
     row = svc.generate_report(db, assignment_id, user.user_id, p.engine, p.model)
     log_audit(db, user.user_id, "ai.suggest_report", "ai_suggestion", row["suggestion_id"],
+              {"engine": row["engine"], "model": row["model_name"]})
+    db.commit()
+    return row
+
+
+@router.post("/assignment/{assignment_id}/ai/team-suggestions", response_model=SuggestionOut, status_code=201)
+def suggest_team(assignment_id: UUID, payload: Optional[AiRequest] = None,
+                 db: Session = Depends(get_db), user=Depends(team_manage)):
+    authorize_assignment(db, user, "audit.team.manage", assignment_id, ("leader",))
+    p = payload or AiRequest()
+    row = tsvc.generate_suggestions(db, assignment_id, user.user_id, p.engine, p.model)
+    log_audit(db, user.user_id, "ai.suggest_team", "ai_suggestion", row["suggestion_id"],
               {"engine": row["engine"], "model": row["model_name"]})
     db.commit()
     return row

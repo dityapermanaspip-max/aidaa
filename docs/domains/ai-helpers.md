@@ -15,9 +15,12 @@
 |---|---|---|
 | pka, report | assignment record_type | services/ai_suggestions.py, router ai.py |
 | library_draft | pasted text to library PKA and procedures (max 30000 chars), code <type>-NNN per root | library_ai |
-| sbm_draft | pasted PMK table to components, locations and DRAFT rates, record_type organization | sbm_ai |
+| sbm_draft | pasted PMK table to components, locations and DRAFT rates, record_type organization | sbm_ai (parse: sbm_ai_parse, accept: sbm_ai_apply) |
 | budget | plan budget lines, record_type plan | plan_budget_ai |
 | trip_draft | visits and ticket legs, record_type assignment | trip_ai |
+| team | ranked roster shortlist for one assignment, VIEW-ONLY, record_type assignment | team_ai, stored via ai_suggestions |
+| library_improvement | rewrite ONE library PKA (accept replaces the head row), record_type library_pka | library_ai_improvement |
+| expertise_extract | pasted certificate text to pending expertise rows + one HR task, record_type auditor | expertise_ai |
 
 ## SBM helper (sbm_ai)
 - The owner pastes ONE annex table per draft. A code parser reads rows and amounts, a FIXED province map turns PMK spellings
@@ -29,7 +32,11 @@
   A name matching several locations is skipped and reported.
 - Accept creates missing components and locations and DRAFT rates (Finance submits, Board approves). Duplicates are skipped.
 - Permissions: audit.costrate.create to generate and decide, audit.costrate.read for the model list.
-- Not built: a parser shape for tables with one column per grade.
+- Built (2026-10-25): a second table mode, `column_kind` 'grade'. ONE component; each amount column is one official
+  grade (`grade_columns`: heading -> grade code, e.g. GOL_III); every rate carries a single-element grade list, one
+  rate per grade column. The FE review page passes the whole output through on edit, so grade fields survive untouched.
+- File split under the 300-line cap: `sbm_ai_parse.py` (code-only table reading + place matching) and `sbm_ai_apply.py`
+  (the accept half, imported late in `decide_draft`); component-mode behavior is unchanged.
 
 ## Plan budget helper (plan_budget_ai)
 - AI answers only on-site days per audited unit and a reason. Effort = library procedure hours / 8 per audit type.
@@ -43,3 +50,34 @@
 
 ## Trip helper (trip_ai)
 See docs/domains/trip.md.
+
+## Team helper (team_ai)
+- View-only by design (2026-10-25): the AI ranks candidates from the root's REAL auditor roster - active auditors of
+  the root holding the IAM role AIDAA.AUDITOR (iam.active_user_roles), excluding the current team members, with
+  verified skills and a count of open audits inside the assignment period. Every suggested id is validated against
+  the same roster (an invented person is a 502); results are deduped and ordered by rank.
+- Acceptance only records the decision (`ai_suggestions._APPLY["team"]` is a no-op) - the leader adds members through
+  the normal team endpoints. Router: `POST /assignment/{id}/ai/team-suggestions` (audit.team.manage + leader role);
+  list and decide reuse the generic routes (`feature=team`).
+
+## Library improvement helper (library_ai_improvement)
+- ONE pending improvement per library PKA (409 otherwise). The prompt receives the current head, its active
+  procedures and the user instruction; the AI answers full procedure objects (procedure_text, expected_evidence,
+  estimated_hours).
+- Accept: a NEW library_pka head takes the next `<type>-NNN` code (same `_next_number` as drafts), the improved
+  procedures are inserted on it and the OLD head is deactivated (its own procedures stay attached, mirroring the
+  manual deactivate). Both heads are logged (log_status). Only an active head can be improved.
+- Router (library_ai.py): `POST /library/pka/{id}/ai-improvement` + the GET list (`library_read`) and
+  `POST /library/ai/improvements/{id}/decide` (`library_manage`). Root scope goes through `ref_audit_type`
+  (library_pka has no root_org_id).
+
+## Expertise extraction helper (expertise_ai)
+- Owner-only: the auditor extracts their OWN credentials (`expertise_create` + `_assert_owner`, same rule as the
+  manual create). The pasted text is certificate/decree/diklat text for one auditor; the AI answers up to 10 rows;
+  sloppy dates are dropped (strict YYYY-MM-DD regex), never rejected wholesale.
+- Accept: pending rows inserted with source 'ai_suggestion' + ai_suggestion_id (patch 09 adds the column and widens
+  the source CHECK), then ONE approval task on the seeded step record_type 'expertise' step 1 'hr_verify'
+  (global_role AIDAA.HR, no assigned user). Guard: the auditor must not already have a pending expertise task.
+- The registered handler (`_on_expertise_task`) decides the WHOLE batch: every row sharing the ai_suggestion_id that
+  is still pending becomes verified (approved) or rejected with the task note. `GET /expertise/{id}` feeds the
+  approval-inbox link.

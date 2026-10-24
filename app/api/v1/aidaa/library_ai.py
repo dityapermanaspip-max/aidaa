@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.dependencies import library_manage, log_audit
+from app.api.dependencies import library_manage, library_read, log_audit
 from app.schemas.ai import ModelsOut, SuggestionDecision, SuggestionOut
-from app.schemas.library_ai import LibraryDraftRequest
+from app.schemas.library_ai import LibraryDraftRequest, LibraryImproveRequest
 from app.services import library_ai as svc
+from app.services import library_ai_improvement as isvc
 from app.services.ai_engine import list_ollama_models
 
 router = APIRouter()
@@ -44,5 +45,32 @@ def decide_draft(suggestion_id: UUID, payload: SuggestionDecision,
                  db: Session = Depends(get_db), user=Depends(library_manage)):
     row = svc.decide_draft(db, suggestion_id, payload, user.user_id)
     log_audit(db, user.user_id, f"ai.library_draft_{payload.decision}", "ai_suggestion", suggestion_id)
+    db.commit()
+    return row
+
+
+# --- library_improvement: rewrite one library PKA (accept deactivates the old head) ---
+
+@router.post("/library/pka/{library_pka_id}/ai-improvement", response_model=SuggestionOut, status_code=201)
+def create_improvement(library_pka_id: UUID, payload: LibraryImproveRequest,
+                       db: Session = Depends(get_db), user=Depends(library_manage)):
+    row = isvc.generate_improvement(db, user.user_id, library_pka_id, payload)
+    log_audit(db, user.user_id, "ai.library_improvement", "ai_suggestion", row["suggestion_id"],
+              {"library_pka_id": str(library_pka_id), "engine": row["engine"], "model": row["model_name"]})
+    db.commit()
+    return row
+
+
+@router.get("/library/pka/{library_pka_id}/ai-improvements", response_model=List[SuggestionOut])
+def list_improvements(library_pka_id: UUID, status: Optional[str] = Query(None),
+                      db: Session = Depends(get_db), user=Depends(library_read)):
+    return isvc.list_improvements(db, user.user_id, library_pka_id, status)
+
+
+@router.post("/library/ai/improvements/{suggestion_id}/decide", response_model=SuggestionOut)
+def decide_improvement(suggestion_id: UUID, payload: SuggestionDecision,
+                       db: Session = Depends(get_db), user=Depends(library_manage)):
+    row = isvc.decide_improvement(db, user.user_id, suggestion_id, payload)
+    log_audit(db, user.user_id, f"ai.library_improvement_{payload.decision}", "ai_suggestion", suggestion_id)
     db.commit()
     return row
