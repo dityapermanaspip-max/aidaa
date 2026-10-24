@@ -137,7 +137,9 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    single/multi choice of 5, free text, scale per-question 1-4/1-5/1-6; `needs_questionnaire` flag on the
    procedure copy; BATCH issue blocked until every marked procedure has questions; team leader sets
    `respondents_needed`, the PIC spreads a PUBLIC LINK (first unauthenticated AIDAA route, token-based),
-   shared counter of finished responses vs target). Evidence-first, no automatic findings or working
+   shared counter of finished responses vs target; token expires 40h after generation, regeneration
+   (team or PIC) mints a fresh token and restarts the window; responses accepted past target, counter
+   shows the raw pair like 12/5). Evidence-first, no automatic findings or working
    papers; AI helpers later. Awaiting the owner's "go code" + DDL patch 07 - see DECISIONS.md.
 
 ## Known gaps

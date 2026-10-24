@@ -169,3 +169,11 @@ Format: date, decision, reason.
   Public entries keep submitted_by NULL; identity comes solely from the control-group block.
   Default (following the doc-request rule, flag for confirmation): the link stops accepting once the
   assignment leaves workable status; the team can also close the link manually.
+- 2026-10-24 FINAL refinement (owner): the public token EXPIRES 40 hours after generation (a module
+  constant, tweakable in one place); a regeneration (team or the PIC of the unit) issues a fresh token
+  and restarts the 40-hour window - the old token dies instantly because the questionnaire stores ONE
+  live token, no token history. Regenerating is allowed while the questionnaire is issued and the
+  assignment is still workable. Responses are accepted without a target cap; the counter shows the raw
+  pair (e.g. "12/5" with a target-reached marker). Owner confirmed the 5-question cap ("easier for the
+  AI too" - the later AI questionnaire creator also works within it). The workable-end stop stands as
+  the default. Design is COMPLETE; still awaiting the owner's "go code" before any DDL/code is written.
