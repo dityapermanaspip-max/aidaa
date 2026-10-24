@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.execution import ProgressOut, PublicQuestionnaireOut, QuestionnaireResponseIn
-from app.services.execution import questionnaires as svc
+from app.services.execution import questionnaire_answers as svc
 
 router = APIRouter()
 
