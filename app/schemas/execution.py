@@ -544,6 +544,7 @@ class QuestionnaireProcedureOut(BaseModel):
     needs_questionnaire: bool
     questionnaire_id: Optional[UUID] = None
     questionnaire_title: Optional[str] = None
+    questionnaire_intro: Optional[str] = None
     questionnaire_status: Optional[str] = None
     respondents_needed: Optional[int] = None
     question_count: Optional[int] = None

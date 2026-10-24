@@ -95,7 +95,8 @@ def list_questionnaire_procedures(db: Session, assignment_id: UUID) -> list[dict
     rows = db.execute(text("""
         SELECT p.procedure_id, p.pka_id, k.title AS pka_title, p.step_no, p.procedure_text,
                p.needs_questionnaire, q.questionnaire_id,
-               q.title AS questionnaire_title, q.status AS questionnaire_status,
+               q.title AS questionnaire_title, q.intro AS questionnaire_intro,
+               q.status AS questionnaire_status,
                q.respondents_needed, q.public_token, q.link_expires_at,
                (SELECT count(*) FROM aidaa_core.questionnaire_question qq
                  WHERE qq.questionnaire_id = q.questionnaire_id) AS question_count,
