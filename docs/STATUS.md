@@ -133,6 +133,9 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    then on the VPS (endpoints error out until then), restart the backend, then the browser pass (doc-req
    lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
    roles `audit.finding.read` org-mapped (same mapping Monev needs).
+8. Kuesioner: designed with the owner 2026-10-24 (one per PKA procedure; single/multi choice of 5, free text,
+   scale 1-6; several responses, control-group identity at the start; evidence-first, no automatic findings
+   or working papers; AI helpers later). Awaiting the owner's "go code" + DDL patch 07 - see DECISIONS.md.
 
 ## Known gaps
 - Findings have no unit column.

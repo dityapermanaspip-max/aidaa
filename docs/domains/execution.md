@@ -46,4 +46,6 @@
   their audited units' orgs, so PICs OUTSIDE the internal audit org can use it). Read-only; the `monitor_rekomend`
   timestamp remains the only write.
 - Not built: manual finding close, overdue-rekomend REPORTS (the Monev listing exists; scheduled/print reports or
-  reminder notices do not).
+  reminder notices do not), and the KUESIONER (questionnaires): designed with the owner 2026-10-24 as a
+  procedure sub-branch (docs/DECISIONS.md), one per procedure, several respondents with a control-group identity
+  block; nothing written yet - needs the owner's "go code" + DDL patch 07.

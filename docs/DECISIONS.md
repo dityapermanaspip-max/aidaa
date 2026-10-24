@@ -133,3 +133,24 @@ Format: date, decision, reason.
 - BAP is created manually at/after communicate (never auto-inserted by `communicate`), and the BAP list ships
   one flat row per communicated+ finding with nullable BAP fields so the UI can show which temuan still lack
   their berita acara.
+
+## 2026-10-24 (continued): Kuesioner design (owner decisions, NOT built - awaiting "go code" + DDL patch 07)
+
+- The questionnaire is a SUB-BRANCH of a PKA procedure: exactly ONE questionnaire per procedure
+  (UNIQUE procedure_id). Want more questionnaires in an assignment? The owner forks more procedures
+  (the PKA already supports adding procedures) - no questionnaire tree, no assignment-level ad-hoc surveys.
+- Four question kinds only (v1): single choice (up to 5 options), multi select (up to 5 options),
+  free text, and a numeric scale of 6 points (1-6). Choices live on the question; single answers store the
+  chosen option index, multi answers store indexes, scale stores 1..6, text stores the text.
+- SEVERAL respondents fill one questionnaire. Respondent identity is NOT the login identity: every response
+  opens with the mandatory CONTROL GROUP at the start - name, position (jabatan), age, last degree, and
+  male/female - owned by each response row (columns, rendered as the first section of the entry form).
+  The AIDAA user who enters/submits the set is still logged separately (submitted_by).
+- Evidence first: results aggregate for the team (counts/percentages per option, scale averages, raw text)
+  and stay documentation - they NEVER auto-create findings or working papers.
+- AI is deferred twice over: an AI questionnaire creator (draft questions from procedure title/objective)
+  and AI help turning answers into a working paper are LATER batches; the working-paper loop needs real
+  questionnaire samples from the owner (same pattern as SBM/Lampiran parsing).
+- Nothing exists yet: no DDL, no endpoints, no UI. Planned DDL patch 07 (assignment_questionnaire,
+  questionnaire_question, questionnaire_response, questionnaire_answer); submission reuses the PIC
+  gate (audit.finding.respond + authorize_pic + own-unit row check) like doc requests.
