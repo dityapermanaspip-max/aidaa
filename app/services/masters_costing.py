@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.schemas.aidaa import (
     CostComponentCreate, CostComponentUpdate, CostRateCreate, CostRateUpdate, CostRateDecision,
 )
+from app.services.budget_core import location_fits
 from app.services.masters import _update_row, _like
 from app.services.scope import get_root, assert_in_root, scoped_get
 
@@ -139,6 +140,59 @@ def list_rates(db: Session, user_id: UUID, active_only: bool = True, component_i
            "l": str(location_id) if location_id else None, "s": status,
            "g": grade, "lim": limit, "off": offset}).fetchall()
     return [dict(r._mapping) for r in rows]
+
+
+def list_grade_codes(db: Session, user_id: UUID) -> list[str]:
+    """Distinct grade codes the root's approved rates carry. auditor.grade is free text and a typo
+    means "no rate", so forms suggest exactly these codes."""
+    rows = db.execute(text("""
+        SELECT DISTINCT g AS grade
+        FROM aidaa_core.ref_cost_rate r
+        JOIN aidaa_core.ref_cost_component c ON c.component_id = r.component_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(r.grade) g
+        WHERE c.root_org_id = CAST(:r AS uuid)
+          AND r.is_active = TRUE AND r.approval_status = 'approved' AND r.grade IS NOT NULL
+        ORDER BY g
+        LIMIT 200
+    """), {"r": str(get_root(db, user_id))}).fetchall()
+    return [r.grade for r in rows]
+
+
+def list_candidates(db: Session, user_id: UUID, component_id: UUID, location_id: UUID, on_date,
+                    grade: Optional[str] = None, origin_location_id: Optional[UUID] = None) -> list[dict]:
+    """Rates a human may pick for a budget AI line: approved, active, valid on on_date and fitting
+    the destination exactly the way _pick_rate does (budget_core.location_fits). The server
+    re-prices anyway, so these candidates are the only choices that can survive the accept."""
+    root = get_root(db, user_id)
+    rows = db.execute(text(f"""
+        SELECT {_RATE_COLS_R} {_RATE_FROM}
+        WHERE r.component_id = CAST(:c AS uuid) AND c.root_org_id = CAST(:r AS uuid)
+          AND r.is_active = TRUE AND r.approval_status = 'approved'
+          AND r.effective_from <= CAST(:d AS date)
+          AND (r.effective_to IS NULL OR r.effective_to >= CAST(:d AS date))
+    """), {"c": str(component_id), "r": str(root), "d": on_date}).fetchall()
+    fits = []
+    for row in rows:
+        rec = dict(row._mapping)
+        if rec["location_id"] and not location_fits(db, rec["location_id"], location_id):
+            continue
+        if origin_location_id and rec["origin_location_id"] is not None \
+                and str(rec["origin_location_id"]) != str(origin_location_id):
+            continue
+        fits.append(rec)
+
+    def _key(x: dict):
+        return (
+            0 if str(x["location_id"]) == str(location_id) else 1,
+            0 if (not origin_location_id or (x["origin_location_id"]
+                                             and str(x["origin_location_id"]) == str(origin_location_id))) else 1,
+            0 if (grade and x["grade"] and grade in x["grade"]) else 1,
+            0 if x["grade"] else 1,  # a listed grade beats "every grade" when none is given
+            float(x["amount"]),
+        )
+
+    fits.sort(key=_key)
+    return fits[:200]
 
 
 def create_rate(db: Session, payload: CostRateCreate, user_id: UUID) -> dict:

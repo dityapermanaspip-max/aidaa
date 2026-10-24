@@ -55,15 +55,44 @@ def get_iau_org(db: Session, root_id: UUID) -> Optional[UUID]:
 def get_setting(db: Session, user_id: UUID) -> dict:
     root = get_root(db, user_id)
     row = db.execute(text(f"""
-        SELECT s.root_org_id, s.iau_org_id, o.org_code AS iau_org_code, d.official_name AS iau_org_name, s.updated_at
+        SELECT s.root_org_id, s.iau_org_id, o.org_code AS iau_org_code, d.official_name AS iau_org_name,
+               s.base_location_id, l.location_code AS base_location_code, l.location_name AS base_location_name,
+               s.updated_at
         FROM aidaa_core.audit_setting s
         JOIN iam.organizations o ON o.org_id = s.iau_org_id
+        LEFT JOIN aidaa_core.ref_location l ON l.location_id = s.base_location_id
         {NAME_JOIN}
         WHERE s.root_org_id = CAST(:r AS uuid)
     """), {"r": str(root)}).fetchone()
     if row:
         return dict(row._mapping)
-    return {"root_org_id": root, "iau_org_id": None, "iau_org_code": None, "iau_org_name": None, "updated_at": None}
+    return {"root_org_id": root, "iau_org_id": None, "iau_org_code": None, "iau_org_name": None,
+            "base_location_id": None, "base_location_code": None, "base_location_name": None,
+            "updated_at": None}
+
+
+def set_base_location(db: Session, user_id: UUID, base_location_id: Optional[UUID]) -> dict:
+    """Per-root departure base used as the trip origin fallback (auditor home first, then this).
+    The row must exist (IAU set first); passing None clears the value."""
+    root = get_root(db, user_id)
+    row = db.execute(text("SELECT 1 FROM aidaa_core.audit_setting WHERE root_org_id = CAST(:r AS uuid)"),
+                     {"r": str(root)}).fetchone()
+    if not row:
+        raise HTTPException(status_code=409, detail="Designate the Internal Audit Unit first")
+    if base_location_id is not None:
+        ok = db.execute(text("""
+            SELECT 1 FROM aidaa_core.ref_location
+            WHERE location_id = CAST(:b AS uuid) AND is_active = TRUE AND root_org_id = CAST(:r AS uuid)
+        """), {"b": str(base_location_id), "r": str(root)}).fetchone()
+        if not ok:
+            raise HTTPException(status_code=400,
+                                detail="The base location must be an active location of your root organization")
+    db.execute(text("""
+        UPDATE aidaa_core.audit_setting
+        SET base_location_id = CAST(:b AS uuid), updated_at = now(), updated_by = CAST(:u AS uuid)
+        WHERE root_org_id = CAST(:r AS uuid)
+    """), {"b": str(base_location_id) if base_location_id else None, "u": str(user_id), "r": str(root)})
+    return get_setting(db, user_id)
 
 
 def set_iau(db: Session, user_id: UUID, iau_org_id: UUID) -> dict:

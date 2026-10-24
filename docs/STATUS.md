@@ -12,6 +12,44 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Home base and auditor grade screen (2026-10-24)**: `PUT/GET /master/audit-setting` now also carries
+  `base_location_id` (both fields optional in `AuditSettingIn`, explicit null clears it; row must exist,
+  so 409 until the IAU is set; location validated active + same root). FE: the settings page has a
+  "Lokasi Dasar" block and the auditor form suggests grade codes from
+  `GET /master/cost-rates/grade-codes` (distinct grades of the root's approved rates,
+  `audit.costrate.read`). Not exercised in the browser yet.
+- **Manual rate picker in the plan budget AI modal (2026-10-24)**: new read endpoint
+  `GET /master/cost-rates/candidates` (component_id, location_id, on_date required; grade and
+  origin_location_id optional) returns approved + active rates valid on that date, filtered/ordered by
+  the same `location_fits` logic as the budget AI `_pick_rate` (exact place first, listed grade first,
+  cheapest last). The modal offers these to its `no_rate`/`manual` lines; a pick sets rate_id + unit_rate
+  + amount and flips the line to `ok`. Not exercised in the browser yet.
+- **Monev Temuan (2026-10-24)**: `GET /monitoring/temuan` (`audit.finding.read`) returns cross-assignment
+  findings + rekomendasi rows (slim: no description/criteria) with `no_response`/`overdue`/`under_review`
+  flags and unit names. Scope = the same org rule as the surat tugas list: a global perm mapping sees all;
+  an org-mapped caller sees its own records and, after issue, the audited units of its orgs — so people
+  OUTSIDE the internal audit org (auditee PICs) can use it, provided the IAM matrix grants them
+  `audit.finding.read` scope-mapped. FE page `/dashboard/aidaa/monev` (search + overdue-only + status
+  filters, Temuan and Rekomendasi tables). Not exercised in the browser yet.
+- **Korespondensi (2026-10-24)**: document requests (A), interview schedules (C) and the berita acara
+  penyampaian notisi (D) per assignment. DDL = `sql/aidaa_patch_06_korespondensi.sql` (numbered 06
+  because patches 04/05 already exist) — **written, NOT yet run by the owner; run locally, then on the
+  VPS, before testing any of these endpoints** (tables do not exist until then; it also backfills BAP
+  skeletons for findings already communicated+). New service `app/services/execution/correspondence.py`
+  + router `app/api/v1/aidaa/correspondence.py`: doc-req `GET|POST /assignment/{id}/doc-req`,
+  `PATCH /doc-req/{id}`, `POST /doc-req/{id}/submit` (PIC), `/verify`; interviews
+  `GET|POST /assignment/{id}/interviews`, `PATCH /interview/{id}` (planned only),
+  `/hold`, `/done`, `/cancel` (reason required); BAP `GET /assignment/{id}/baps` (flat list, every
+  communicated+ finding with nullable BAP fields), `POST /findings/{id}/bap`, `PATCH /bap/{id}`,
+  `POST /bap/{id}/result` (records the auditee's stance). NEW RULE: `resolve_finding` now refuses
+  (409) to resolve a finding whose berita acara has no recorded `stance_result` — an existing responded
+  finding can no longer be resolved until its BAP result is recorded. Permission reuse only (no new
+  codes): doc-req manage `audit.assignment.update` (ROLES_WORK, workable), PIC submit
+  `audit.finding.respond` + authorize_pic + the row must belong to the PIC's own audited unit,
+  interviews the logistics wrapper, BAP writes `audit.finding.communicate` (lead/supervisor), all
+  reads `authorize_view` with `audit.finding.read` and PIC lists org-filtered. FE:
+  `/dashboard/aidaa/exec/korespondensi` (Penugasan menu, after "Tim Audit") with three cards.
+  Import check passes; NOT exercised in the browser and DDL not yet run.
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
 - PDF import for SBM and library AI drafts: `app/api/v1/aidaa/doc_extract.py` (`POST /api/v1/aidaa/documents/extract`,
@@ -84,11 +122,17 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 
 ## To do (next)
 1. Test SBM AI with real text, then load real 2027 data (lodging, daily allowance, tickets, road, terminal, in-city transport).
-2. Screen to set audit_setting.base_location_id and to edit auditor grade and home location with codes that match rate grades.
+2. (Built 2026-10-24, owner test pending) Base location screen done (`/dashboard/aidaa/settings` "Lokasi Dasar"),
+   auditor grade hints + home location already in the auditor form. Remaining: confirm the codes typed by the
+   owner match the approved rate grades.
 3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
 4. Flag budget lines above the SBM reference with a required reason.
 5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
 6. Wire seeded approval steps (budget verification, assignment_change).
+7. (Built 2026-10-24, owner pass pending) Korespondensi: run `sql/aidaa_patch_06_korespondensi.sql` locally,
+   then on the VPS (endpoints error out until then), restart the backend, then the browser pass (doc-req
+   lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
+   roles `audit.finding.read` org-mapped (same mapping Monev needs).
 
 ## Known gaps
 - Findings have no unit column.
@@ -111,3 +155,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   exist; `realisation_settlement` is filled by the settlement approval batch (submitted rows are open -> settled
   via an `AIDAA.FINANCE` approval task). The `settlement` approval step was added to the `approval_step` seed in
   `aidaa_log_approval.sql` and applied to the database.
+- `sql/aidaa_patch_06_korespondensi.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
+  (locally, then on the VPS) every Korespondensi endpoint 500s on missing tables, and `resolve_finding`
+  would 409 on every responded finding (the gate query would fail; run the patch BEFORE testing).

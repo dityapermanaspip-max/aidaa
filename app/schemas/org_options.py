@@ -23,7 +23,10 @@ class AuditorCandidateOut(BaseModel):
 
 
 class AuditSettingIn(BaseModel):
-    iau_org_id: UUID
+    # Both optional, at least one must be sent. base_location_id may be sent explicitly as null
+    # (clears it); iau_org_id can never be cleared.
+    iau_org_id: Optional[UUID] = None
+    base_location_id: Optional[UUID] = None
 
 
 class AuditSettingOut(BaseModel):
@@ -31,4 +34,7 @@ class AuditSettingOut(BaseModel):
     iau_org_id: Optional[UUID] = None
     iau_org_code: Optional[str] = None
     iau_org_name: Optional[str] = None
+    base_location_id: Optional[UUID] = None
+    base_location_code: Optional[str] = None
+    base_location_name: Optional[str] = None
     updated_at: Optional[datetime] = None

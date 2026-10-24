@@ -81,3 +81,55 @@ Format: date, decision, reason.
   `GEMINI_*` stays in config but is unused by the engine. Reason: `generativelanguage.googleapis.com` is not
   reachable from the Tencent Cloud deployment, and the OpenAI-compatible shape keeps any future provider a pure
   `.env` switch. The retry 429/503 + real-error-text pattern and `_clean_json` fence stripping are unchanged.
+- 2026-10-24: `audit_setting.base_location_id` (patch 01 column, until now only read by the trip helper) is set through
+  `PUT /master/audit-setting`: both `iau_org_id` and `base_location_id` are optional, at least one is required, an
+  explicit null clears the base location. `set_base_location` refuses until the setting row exists (409, IAU first)
+  and validates the location is active inside the active root (`ref_location.root_org_id` is NOT NULL since patch 03).
+  The IAU upsert does not touch `base_location_id`. Reason: one settings screen per root; the trip origin rule stays
+  unchanged (auditor home first, the base location second, per docs/domains/trip.md).
+- 2026-10-24: Auditor grades are suggested from data, not a master table: `GET /master/cost-rates/grade-codes` returns
+  the distinct grade codes of the root's approved rates (`audit.costrate.read`). Reason: no grade master exists and
+  `auditor.grade` is free text whose typo means "no rate"; approved-only because budgets price with approved rates only.
+- 2026-10-24: The plan budget AI modal fixes its `no_rate`/`manual` lines through
+  `GET /master/cost-rates/candidates` (approved + active + valid on the plan start, filtered and ordered with the same
+  `location_fits` ordering as `_pick_rate`: exact place, origin match, fitting listed grade, cheapest). Reason: whatever
+  the human picks must survive `_apply`'s `resolve_price` re-price, so the FE may offer only server-approved fits;
+  hand-typed amounts are never trusted, same decision as the trip AI modal. Read-only, same permission as the rate
+  list, no schema change.
+- 2026-10-24: Monev Temuan is read-only and reuses the surat tugas VISIBILITY RULE instead of introducing a new
+  permission (`GET /monitoring/temuan`, `audit.finding.read`; global mapping = all rows, else owner-org match or
+  unit-org match for non-draft assignments). Reason: the owner wants the view usable by people outside the
+  internal audit org (auditee PICs), and PIC access is already defined at the assignment level; a separate
+  monitoring permission could not be seeded (sql/ is off-limits) while reusing this rule keeps one definition of
+  "which assignments may I see". Rows are deliberately slim - no description/criteria - because the audience is
+  wider than the finding edit screens.
+
+## 2026-10-24 (continued): Korespondensi (doc requests, interviews, berita acara penyampaian notisi)
+
+- DDL is `sql/aidaa_patch_06_korespondensi.sql`, NOT patch 04. Reason: the owner asked for "sql fix batch 4"
+  but patches 04 (`org_scope2`) and 05 (`realisation`) already exist, so the next free number is 06. It is
+  safe to rerun and backfills a BAP skeleton (`BAP-<finding_no>`, non-conflicting INSERT ... ON CONFLICT
+  DO NOTHING) for every finding already communicated or further along. `bap_no` is NOT unique on purpose -
+  numbers repeat across assignments (BAP-F-001 is valid in two surat tugas); `finding_id` carries the
+  uniqueness (one BAP per finding).
+- Interview `start_time`/`end_time` are varchar(8) display strings, not TIME columns. Reason: they are shown
+  verbatim (typed "09:00"), and a TIME column would force cast/adapter handling in the write helpers whose
+  only purpose would be that display.
+- Permission reuse, no new codes (IAM seeding is off-limits from here): doc-req manage = `audit.assignment.update`
+  with the team member/leader role while the assignment is workable (writes stop when the audit ends, which also
+  stops PIC submissions); PIC submit = `audit.finding.respond` via authorize_pic with an extra row-level check
+  that the doc request belongs to a unit whose org the caller is auditee PIC of (an assignment can audit two
+  units of DIFFERENT orgs; authorize_pic alone would let a PIC of one org submit for the other's unit);
+  interviews = the logistics wrapper (either `audit.assignment.update` or `audit.assignment.logistics`) plus the
+  team role; BAP create/result = `audit.finding.communicate` with the leader/supervisor role; every read =
+  authorize_view on `audit.finding.read`, and PIC lists are filtered to their audited unit orgs in SQL.
+- BAP writes deliberately SKIP the assignment-workable check. Reason: the berita acara is post-audit
+  correspondence - results may need recording after fieldwork ends (assignment finished/cancelled), unlike doc
+  requests and interviews which belong to the audit itself.
+- THE RESOLVE GATE: `resolve_finding` (responded -> open) now 409s unless `finding_bap.stance_result` is set.
+  Reason: the owner's rule - the temuan is finalized only after the auditee expressed agreement (or not) within
+  the given days, formally recorded in the berita acara. The backfill means existing communicated+ findings
+  already HAVE a skeleton; each team must still record the stance result. Findings in 'closed' are unaffected.
+- BAP is created manually at/after communicate (never auto-inserted by `communicate`), and the BAP list ships
+  one flat row per communicated+ finding with nullable BAP fields so the UI can show which temuan still lack
+  their berita acara.

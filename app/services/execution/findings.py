@@ -173,6 +173,16 @@ def resolve_finding(db: Session, finding_id: UUID, note: str, user_id: UUID) -> 
     f = get_finding(db, finding_id)
     if f["status"] != "responded":
         raise HTTPException(status_code=409, detail="Only a responded finding can be resolved")
+    # Korespondensi gate (batch 06): the berita acara penyampaian notisi must exist AND record the
+    # auditee's stance before the supervisor resolves the finding (the auditee agreed within the
+    # given days - otherwise the disagreement round-trip keeps the item from closing).
+    gate = db.execute(text("""
+        SELECT 1 FROM aidaa_core.finding_bap
+        WHERE finding_id = CAST(:f AS uuid) AND stance_result IS NOT NULL
+    """), {"f": str(finding_id)}).fetchone()
+    if not gate:
+        raise HTTPException(status_code=409,
+                            detail="Resolve is blocked until the berita acara penyampaian notisi records the auditee's stance")
     _patch(db, "aidaa_core.finding", "finding_id", finding_id, {"status": "open"}, user_id)
     log_comment(db, "finding", finding_id, f"Supervisor decision: {note}", user_id)
     log_status(db, "finding", finding_id, "responded", "open", user_id)

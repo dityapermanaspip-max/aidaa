@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.deps_root import resolve_root
-from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, trip_ai, budgeting, exec_pka, exec_finding, exec_report, exec_deviation, ai, realisation, doc_extract
+from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, trip_ai, budgeting, exec_pka, exec_finding, exec_report, exec_deviation, monitoring, correspondence, ai, realisation, doc_extract
 
 app = FastAPI(
     title="AIDAA - AI Driven Audit Assistant",
@@ -41,6 +41,8 @@ app.include_router(exec_pka.router, prefix=API_PREFIX, tags=["Execution - PKA"],
 app.include_router(exec_finding.router, prefix=API_PREFIX, tags=["Execution - Findings"], dependencies=ROOT_SCOPED)
 app.include_router(exec_report.router, prefix=API_PREFIX, tags=["Execution - Report"], dependencies=ROOT_SCOPED)
 app.include_router(exec_deviation.router, prefix=API_PREFIX, tags=["Execution - Deviation"], dependencies=ROOT_SCOPED)
+app.include_router(monitoring.router, prefix=API_PREFIX, tags=["Monev"], dependencies=ROOT_SCOPED)
+app.include_router(correspondence.router, prefix=API_PREFIX, tags=["Korespondensi"], dependencies=ROOT_SCOPED)
 app.include_router(ai.router, prefix=API_PREFIX, tags=["AI"], dependencies=ROOT_SCOPED)
 app.include_router(plan_budget_ai.router, prefix=f"{API_PREFIX}/plan", tags=["Plan Budget AI"], dependencies=ROOT_SCOPED)
 app.include_router(doc_extract.router, prefix=API_PREFIX, tags=["Documents"])

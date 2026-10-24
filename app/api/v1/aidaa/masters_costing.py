@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -69,6 +70,19 @@ def list_rates(active_only: bool = True, component_id: Optional[UUID] = None,
                limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                db: Session = Depends(get_db), user=Depends(costrate_read)):
     return svc.list_rates(db, user.user_id, active_only, component_id, location_id, status, grade, limit, offset)
+
+
+@router.get("/cost-rates/grade-codes", response_model=List[str])
+def list_grade_codes(db: Session = Depends(get_db), user=Depends(costrate_read)):
+    return svc.list_grade_codes(db, user.user_id)
+
+
+@router.get("/cost-rates/candidates", response_model=List[CostRateOut])
+def rate_candidates(component_id: UUID, location_id: UUID, on_date: date = Query(...),
+                    grade: Optional[str] = Query(None, max_length=30),
+                    origin_location_id: Optional[UUID] = None,
+                    db: Session = Depends(get_db), user=Depends(costrate_read)):
+    return svc.list_candidates(db, user.user_id, component_id, location_id, on_date, grade, origin_location_id)
 
 
 @router.get("/cost-rates/{rate_id}", response_model=CostRateOut)
