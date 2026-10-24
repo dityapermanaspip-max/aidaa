@@ -154,3 +154,18 @@ Format: date, decision, reason.
 - Nothing exists yet: no DDL, no endpoints, no UI. Planned DDL patch 07 (assignment_questionnaire,
   questionnaire_question, questionnaire_response, questionnaire_answer); submission reuses the PIC
   gate (audit.finding.respond + authorize_pic + own-unit row check) like doc requests.
+- 2026-10-24 REFINEMENT (owner, supersedes parts above where they conflict): the scale is a per-question
+  choice of 4, 5 or 6 points (not a fixed 1-6; answers validated against the chosen scale_max). A
+  questionnaire carries AT MOST 5 questions (hard cap - a procedure should not need more; fork procedures
+  for more). `needs_questionnaire` is a flag on the per-assignment procedure copy; the team toggles it and
+  the team leader is accountable that every procedure marked as needing a questionnaire has its questions.
+  Issuing to the PIC is a BATCH: one action issues every ready questionnaire at once and the backend
+  refuses (422) while any marked-needed procedure still lacks questions - the leader's "ensure" step made
+  mechanical. The leader sets `respondents_needed` per questionnaire (default 1); the PIC spreads the
+  questionnaire as a PUBLIC LINK (token-based, no login) and both sides watch a counter of finished
+  responses vs target; the PIC can also fill a set in-app. The public link is planned as AIDAA's FIRST
+  unauthenticated route: a token GET + POST in a new public router mounted WITHOUT auth/root dependencies;
+  the public surface answers only progress counts, aggregated results stay behind the logged-in API.
+  Public entries keep submitted_by NULL; identity comes solely from the control-group block.
+  Default (following the doc-request rule, flag for confirmation): the link stops accepting once the
+  assignment leaves workable status; the team can also close the link manually.
