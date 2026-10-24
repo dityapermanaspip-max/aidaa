@@ -88,6 +88,17 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25 (batch): the two remaining seeded approval steps are wired. `budget`/`finance_verify`:
+  leader submits the issued/ongoing assignment's budget (`POST /assignment/{id}/budget-verification`,
+  one pending at a time), `AIDAA.FINANCE` decides in the generic inbox, `GET` returns the latest
+  task; approval/rejection are recorded as comments and lines may keep editing (no lock, resubmit
+  allowed) - the latest task doubles as the verification state. `assignment_change`:
+  `sql/aidaa_patch_08_change_requests.sql` (NOT yet run) stages post-issue edits (dates, notes,
+  document, extra units) in `assignment_change`; the leader files, the assignment's supervisor gets
+  an assigned task (`_reviewer` path), and only an approved task applies the payload through the
+  shared `_apply_assignment_edit` (same date/unit/conflict guards as the draft PATCH; the requester
+  cannot decide; one pending request at a time; requesting is leader-only). FE: change-request card
+  on the assignment page, verification strip on the budget tab, inbox rows link to the assignment.
 - 2026-10-25: Hygiene batch. Verified NO route clash for `/assignment/{id}/funding`: budgeting is mounted
   at the bare API prefix, the assignment router has no 3-segment paths, and no other `/assignment`-prefixed
   router defines funding routes (the stale known-gaps bullets are gone). The library_ai duplicate GET
@@ -158,7 +169,11 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
 4. Flag budget lines above the SBM reference with a required reason.
 5. AI helpers: library_improvement, team, expertise. Parser shape for one-column-per-grade tables.
-6. Wire seeded approval steps (budget verification, assignment_change).
+6. (Built 2026-10-25, owner pass pending) Approval wiring (item 6 done): run
+   `sql/aidaa_patch_08_change_requests.sql` locally then on the VPS, restart, then the browser pass -
+   leader files a change on an issued assignment -> supervisor decides in Kotak Persetujuan -> fields
+   applied; budget verification submit -> Finance decides -> strip updates. IAM matrix: FINANCE role
+   holders need nothing new (inbox is global-role driven); supervisors must be active team members.
 7. (Built 2026-10-24, owner pass pending) Korespondensi: run `sql/aidaa_patch_06_korespondensi.sql` locally,
    then on the VPS (endpoints error out until then), restart the backend, then the browser pass (doc-req
    lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
@@ -197,3 +212,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - `sql/aidaa_patch_07_kuesioner.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
   (locally, then on the VPS, after patch 06) every Kuesioner endpoint 500s on missing tables; the
   public `/q/[token]` page and the BFF `/api/aidaa-public/[...path]` forwarder depend on it too.
+- `sql/aidaa_patch_08_change_requests.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
+  (locally, then on the VPS) every change-request endpoint 500s on the missing `assignment_change`
+  table; the budget-verification flow does NOT need it.

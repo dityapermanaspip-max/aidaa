@@ -198,3 +198,15 @@ Format: date, decision, reason.
   clash around `/assignment/{id}/funding` (budgeting is mounted at the bare API prefix and no other
   `/assignment`-prefixed router defines funding routes) and that the library_ai duplicate
   `GET /library/ai/drafts` no longer exists.
+- 2026-10-25: The last two unwired seeded approval steps went live. `budget` ('finance_verify',
+  AIDAA.FINANCE): the leader submits the assignment budget for verification while the assignment is
+  issued/ongoing; budget lines keep editing, verification is a recorded checkpoint (comment), and
+  resubmission after edits is always possible (no hard lock) - the LATEST task doubles as the
+  verification state, nothing else is stored. `assignment_change` ('supervisor_approve' as
+  assignment_role): patch 08 (`assignment_change` table, payload jsonb) stages post-issue edits and
+  ONLY an approved task applies them through the same body as the draft PATCH
+  (`_apply_assignment_edit`), so date/unit/conflict guards and the edit-log trail are shared; the
+  requester can never decide their own request (engine rule; the requester is excluded when the
+  reviewer is resolved); ONE pending request per assignment; rejected and returned both end the
+  request (file a new one); cancelling is the requester's, while still pending. Filing is
+  leader-only; extra units re-run unit and conflict checks exactly like drafts.

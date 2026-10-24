@@ -6,13 +6,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import (
     budget_read, budget_draft, assignment_update, check_org_permission, log_audit,
+    authorize_assignment, ROLES_LEAD,
 )
 from app.schemas.budget import (
     BudgetLineCreate, BudgetLineUpdate, BudgetLineOut,
     FundingAllocCreate, FundingAllocOut, BudgetSummaryOut,
 )
+from app.schemas.aidaa import TaskOut
 from app.services import budgets as svc
 from app.services import assignment_funding as fsvc
+from app.services import budget_flow as bflow
 from app.services.roles import assert_assignment_visible
 
 router = APIRouter()
@@ -107,6 +110,27 @@ def delete_funding(assignment_id: UUID, funding_id: UUID,
     log_audit(db, user.user_id, "assignment.funding_remove", "assignment", assignment_id,
               {"funding_id": str(funding_id)})
     db.commit()
+
+
+# --- Budget finance verification (seeded step record_type 'budget') ---
+
+@router.get("/assignment/{assignment_id}/budget-verification", response_model=Optional[TaskOut])
+def get_budget_verification(assignment_id: UUID, db: Session = Depends(get_db),
+                            user=Depends(budget_read)):
+    check_org_permission(db, user, "audit.budget.read", "assignment", assignment_id)
+    assert_assignment_visible(db, user.user_id, assignment_id)
+    return bflow.get_budget_verification(db, assignment_id)
+
+
+@router.post("/assignment/{assignment_id}/budget-verification", response_model=TaskOut, status_code=201)
+def submit_budget_verification(assignment_id: UUID, db: Session = Depends(get_db),
+                               user=Depends(budget_draft)):
+    authorize_assignment(db, user, "audit.budget.draft", assignment_id, ROLES_LEAD)
+    task = bflow.submit_budget_verification(db, assignment_id, user.user_id)
+    log_audit(db, user.user_id, "budget.verification_submit", "assignment", assignment_id,
+              {"task_id": str(task["task_id"])})
+    db.commit()
+    return task
 
 
 # --- Single line ---

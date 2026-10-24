@@ -25,6 +25,34 @@ class AssignmentUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class AssignmentChangeIn(BaseModel):
+    """Staged post-issue change for the supervisor approval step; omitted fields are unchanged."""
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    extra_unit_ids: Optional[List[UUID]] = None  # replaces the extra units, unplanned audits only
+    assignment_doc_url: Optional[str] = Field(None, max_length=500)
+    assignment_doc_name: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str] = None
+    reason: str = Field(..., min_length=1)
+    due_date: Optional[date] = None
+
+
+class AssignmentChangeOut(BaseModel):
+    change_id: UUID
+    assignment_id: UUID
+    requested_by: UUID
+    reason: str
+    payload: dict
+    status: str
+    task_id: Optional[UUID] = None
+    step: Optional[str] = None
+    due_date: Optional[date] = None
+    decided_by: Optional[UUID] = None
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+    created_at: datetime
+
+
 class AssignmentCancel(BaseModel):
     reason: str = Field(..., min_length=1)
 

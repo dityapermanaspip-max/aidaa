@@ -152,6 +152,12 @@ def update_assignment(db: Session, assignment_id: UUID, payload: AssignmentUpdat
     if current["status"] != "draft":
         raise HTTPException(status_code=409,
                             detail="Only draft assignments can be edited, issued ones need a change request")
+    return _apply_assignment_edit(db, current, data, extras, user_id)
+
+
+def _apply_assignment_edit(db: Session, current: dict, data: dict, extras, user_id: UUID) -> dict:
+    """The edit body shared by the draft PATCH and the supervisor-approved change request."""
+    assignment_id = current["assignment_id"]
     _check_dates(data.get("start_date", current["start_date"]), data.get("end_date", current["end_date"]))
 
     old_units = [str(u) for u in current["unit_ids"]]
