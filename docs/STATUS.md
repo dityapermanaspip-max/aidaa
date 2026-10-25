@@ -24,7 +24,10 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   global row answers 403; the owner reruns `sql/sql_seed/seed_locations_indonesia.sql` to update the master.
   FE: the locations page shows a Sumber badge (BPS/Organisasi) and locks Ubah/Nonaktifkan for BPS rows
   (MasterCrud gained the additive `editableRow`). Import check and `npx tsc --noEmit` pass; NOT exercised in
-  the browser. Patch 10 + the national seed are applied on the LOCAL DB (2026-10-25); the VPS still needs both.
+  the browser; place resolution verified against the real 552 rows (2026-10-25, see the known-gaps sweep
+  note): bare names pick the Kota row, org rows win first, exact and "Kota Administrasi" spellings all
+  resolve — 11/11. Patch 10 + the national seed are applied on the LOCAL DB (2026-10-25); the VPS still
+  needs both.
 - **Home base and auditor grade screen (2026-10-24)**: `PUT/GET /master/audit-setting` now also carries
   `base_location_id` (both fields optional in `AuditSettingIn`, explicit null clears it; row must exist,
   so 409 until the IAU is set; location validated active + same root). FE: the settings page has a
@@ -276,3 +279,16 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   needs BOTH in that order — never patch 03 after 10. The two SBM seeds now carry the partial-index ON
   CONFLICT predicate, live on patched DBs only.
 - `app/services/trip_ai.py` is 373 lines (cap 300) — pre-existing; split it before its next feature change.
+- **Found by the post-seed read-only sweep (2026-10-25), fix pending owner go**: the national seed writes
+  kab/kota rows with the PARENT CODE in `province` (`'PROV-JB'`) while every other producer writes the
+  province NAME (`'Jawa Barat'`) — global PROV rows and org rows included. `budget_core.location_fits`
+  string-compares provinces, so a destination resolved to a GLOBAL kab/kota row (what SBM accept now
+  assigns) fits NO provincial rate — even a rate on the GLOBAL PROV row of the same province fails.
+  All 152 approved 2026 lodging rates sit on the org-tier PROV rows, so every national-city budget line
+  would price as no_rate; the SBM province-narrowing step never narrows for the same reason.
+  Verified as fine in the same sweep: place resolution 11/11 against the real 552 rows (org-first,
+  Kota preference, exact spelling, Administrasi spellings), `list_locations` returns 591 rows with both
+  tiers, `get_location` accepts a global id, and editing a global row 403s on both write paths.
+  Proposed fix (needs owner go): a rerunnable UPDATE recomposing `province` from `parent_location_id`
+  for the 514 global kab/kota rows (seed tail), plus a belt-and-braces `'PROV-'`-code tolerance in
+  `location_fits`.
