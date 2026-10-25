@@ -273,6 +273,23 @@ Format: date, decision, reason.
   their exact row, and org rows keep winning first (an org CITY- row means the national tier is never
   consulted for that place).
 
+## 2026-10-25 (continued): province column spells the province NAME
+
+- Verified by the post-seed sweep: the national seed had written the kab/kota rows' `province` column as the
+  PARENT CODE (`'PROV-JB'`) - the SELECT picked `v.prov` while the province name sat unused in `v.prov2` -
+  while PROV rows (both tiers) and org rows carry the name. `budget_core.location_fits` compares this column
+  as text, so a destination resolved to a GLOBAL kab/kota row fitted NO provincial rate (breaks the budget AI
+  picker, list_candidates, resolve_price) and the SBM province narrowing never narrowed.
+- Fix (owner picked "both"): the seed selects `v.prov2` and gained a rerunnable healing UPDATE that recomposes
+  `province` from `parent_location_id` for the global kab/kota rows; the provinces block got the missing
+  `ON CONFLICT` so the seed is truly rerunnable. Go rule: the `province` column of every `ref_location` row
+  carries the province NAME; belt-and-braces, `location_fits` resolves a stale `'PROV-...'` code through the
+  global province row before comparing. Verified after applying: fitting True everywhere, the rate picker
+  returns 4 candidates for a global Kota destination (0 before), resolution matrix 11/11, 552/514/0 counts.
+- Runner note (same sweep): `scripts/apply_schema.py` now executes the file through the DBAPI cursor with no
+  bind arguments (psql semantics) - SQLAlchemy's always-present empty mapping made psycopg2 treat a literal
+  `%` anywhere in a file (LIKE 'PROV-%', even in comments) as a placeholder and fail.
+
 ## 2026-10-25 (continued): SQL runner through the app's database settings (scripts/apply_schema.py)
 
 - Port of HILDA's runner: `scripts/apply_schema.py` loads the repo `.env` through `app.core.config`, prints

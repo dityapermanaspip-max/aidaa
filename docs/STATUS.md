@@ -122,6 +122,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25 (fix batch): killed the province-code bug the sweep found (see known gaps) — seed column fix
+  (`v.prov2`) + healing UPDATE + provinces ON CONFLICT, and a `'PROV-'`-tolerant `location_fits`; all
+  applied and re-verified locally (fitting True everywhere, picker 4/4 candidates, 11/11 resolution).
 - 2026-10-25 (go sql): patches 07 (kuesioner), 09 (expertise), 10 (location tiers) and
   `sql/sql_seed/seed_locations_indonesia.sql` applied to the LOCAL database through
   `scripts/apply_schema.py`, every file `--dry-run` first. Re-inspection verified:
@@ -279,16 +282,12 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   needs BOTH in that order — never patch 03 after 10. The two SBM seeds now carry the partial-index ON
   CONFLICT predicate, live on patched DBs only.
 - `app/services/trip_ai.py` is 373 lines (cap 300) — pre-existing; split it before its next feature change.
-- **Found by the post-seed read-only sweep (2026-10-25), fix pending owner go**: the national seed writes
-  kab/kota rows with the PARENT CODE in `province` (`'PROV-JB'`) while every other producer writes the
-  province NAME (`'Jawa Barat'`) — global PROV rows and org rows included. `budget_core.location_fits`
-  string-compares provinces, so a destination resolved to a GLOBAL kab/kota row (what SBM accept now
-  assigns) fits NO provincial rate — even a rate on the GLOBAL PROV row of the same province fails.
-  All 152 approved 2026 lodging rates sit on the org-tier PROV rows, so every national-city budget line
-  would price as no_rate; the SBM province-narrowing step never narrows for the same reason.
-  Verified as fine in the same sweep: place resolution 11/11 against the real 552 rows (org-first,
-  Kota preference, exact spelling, Administrasi spellings), `list_locations` returns 591 rows with both
-  tiers, `get_location` accepts a global id, and editing a global row 403s on both write paths.
-  Proposed fix (needs owner go): a rerunnable UPDATE recomposing `province` from `parent_location_id`
-  for the 514 global kab/kota rows (seed tail), plus a belt-and-braces `'PROV-'`-code tolerance in
-  `location_fits`.
+- **Province-code bug from the 2026-10-25 sweep — FIXED the same day (owner picked "both fixes")**: the seed
+  now selects the province NAME (`v.prov2`, was the parent code `v.prov`) and carries a rerunnable healing
+  UPDATE (recomposes `province` from `parent_location_id` for the 514 global kab/kota rows) plus the missing
+  provinces-block ON CONFLICT, so rerunning the seed is truly idempotent. `budget_core.location_fits`
+  resolves a stale `'PROV-...'` code through the global province row before comparing. Applied locally
+  through the runner (dry-run first) and re-verified: fitting True for every tier pair, the rate picker
+  returns 4 candidates for a GLOBAL Kota destination (0 before), resolution matrix 11/11, seed counts
+  552/514/0, org tier 39 untouched. VPS needs no extra step: its first seed run fixes the data by
+  construction. The runner also executes psql-style (no bind arguments) so a literal `%` no longer breaks it.

@@ -8,7 +8,9 @@ Owner-run helper, port of HILDA's runner:
 settings through `app.core.config`, prints only `user@host/database`, and executes the whole file in ONE
 transaction (`--dry-run` = execute + rollback). `--file` is required: AIDAA has no single schema file, only
 base files, numbered patches and seeds. Do a `--dry-run` first, then apply each file in the order listed
-below (patches by number; patch 10 before its seed; never patch 03 after patch 10).
+below (patches by number; patch 10 before its seed; never patch 03 after patch 10). The file runs
+psql-style through the DBAPI cursor with NO bind arguments: placeholders are not a thing for these files,
+a literal `%` (LIKE 'PROV-%', even in a comment) is passed through literally.
 
 ## Files (sql/)
 1. aidaa_iam_permission.sql      app AIDAA, 8 IAM roles, audit.* permissions, role matrix
@@ -42,8 +44,10 @@ Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 m
 - seed_trip_components.sql: six at_cost trip components (TRANSPORT, TIKET_PESAWAT_EKONOMI, TIKET_PESAWAT_BISNIS,
   TRANSPORT_DARAT_ANTAR_KOTA, TRANSPORT_TERMINAL, TRANSPORT_KEGIATAN_DALAM_KOTA), no amounts. Loaded for PDGRPT.
 - seed_locations_indonesia.sql: GLOBAL-tier national master (root_org_id NULL, NOT per root): 38 provinces +
-  514 kab/kota (emsifa/api-wilayah-indonesia v2, Kepmendagri 2025 ed.). Requires patch 10. Append-style and
-  safe to rerun when a province or kab/kota appears; rows are read-only in the app.
+  514 kab/kota (emsifa/api-wilayah-indonesia v2, Kepmendagri 2025 ed.). Requires patch 10. Safe to rerun
+  (ON CONFLICT ... DO NOTHING on both blocks): a rerun adds missing places and HEALS stale province
+  spellings. The `province` column of every location carries the province NAME (`'Jawa Barat'`, never
+  `'PROV-...'`) - budget_core.location_fits compares it as text, budgeting/realisation depend on that.
 A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit_setting in a seed. The one
 exception is the national seed, which is rootless by design.
 

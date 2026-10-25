@@ -42,6 +42,21 @@ def get_assignment_row(db: Session, assignment_id: UUID):
         raise HTTPException(status_code=404, detail="Assignment not found")
     return row
 
+def _province_name(db: Session, province: Optional[str]) -> Optional[str]:
+    """Rate fitting compares province TEXT as a name. Global-tier rows seeded by an older release of
+    seed_locations_indonesia.sql carried the parent code ('PROV-...') in this column; resolve such a
+    code through the global province row so the comparison stays name-to-name (the seed's healing
+    UPDATE also fixes the data, this keeps old databases working)."""
+    if not province or not province.strip().upper().startswith("PROV-"):
+        return province
+    row = db.execute(text("""
+        SELECT province FROM aidaa_core.ref_location
+        WHERE root_org_id IS NULL AND location_code = CAST(:c AS text)
+        ORDER BY location_id
+        LIMIT 1
+    """), {"c": province.strip()}).fetchone()
+    return row[0] if row else province
+
 def location_fits(db: Session, rate_location_id: UUID, line_location_id: UUID) -> bool:
     """A rate on a location with no city covers every place in the same province (SBM is per province).
     A rate on a city location covers that city only. When either side has no province (route rates such as
@@ -59,9 +74,11 @@ def location_fits(db: Session, rate_location_id: UUID, line_location_id: UUID) -
     same = lambda x, y: (x or "").strip().lower() == (y or "").strip().lower()
     if not same(rate.country, line.country):
         return False
-    if not rate.province or not line.province:
+    rate_prov = _province_name(db, rate.province)
+    line_prov = _province_name(db, line.province)
+    if not rate_prov or not line_prov:
         return bool(rate.city and line.city and same(rate.city, line.city))
-    if not same(rate.province, line.province):
+    if not same(rate_prov, line_prov):
         return False
     return rate.city is None or same(rate.city, line.city)
 

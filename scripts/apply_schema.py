@@ -69,8 +69,13 @@ def main() -> int:
 
     with engine.connect() as conn:
         trans = conn.begin()
+        # No bind parameters in these files (psql-style scripts), so execute through the DBAPI cursor
+        # WITHOUT arguments. SQLAlchemy always passes an empty mapping, which would make psycopg2 treat
+        # any literal % in the file (LIKE 'PROV-%', a comment) as a placeholder and fail; omittting the
+        # argument also matches psql's multiple-statement behavior.
+        cursor = conn.connection.cursor()
         try:
-            conn.exec_driver_sql(sql)
+            cursor.execute(sql)
             if args.dry_run:
                 trans.rollback()
                 print("Dry run succeeded; rolled back.")
@@ -80,6 +85,8 @@ def main() -> int:
         except Exception:
             trans.rollback()
             raise
+        finally:
+            cursor.close()
     return 0
 
 

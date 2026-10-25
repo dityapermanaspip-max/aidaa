@@ -45,12 +45,13 @@ VALUES
   (NULL, 'PROV-PD', 'Provinsi Papua Barat Daya', 'Indonesia', 'Papua Barat Daya'),
   (NULL, 'PROV-PT', 'Provinsi Papua Tengah', 'Indonesia', 'Papua Tengah'),
   (NULL, 'PROV-PS', 'Provinsi Papua Selatan', 'Indonesia', 'Papua Selatan'),
-  (NULL, 'PROV-PE', 'Provinsi Papua Pegunungan', 'Indonesia', 'Papua Pegunungan');
+  (NULL, 'PROV-PE', 'Provinsi Papua Pegunungan', 'Indonesia', 'Papua Pegunungan')
+ON CONFLICT (location_code) WHERE root_org_id IS NULL DO NOTHING;
 
 -- 2. KAB/KOTA (514), parented to their province row of the global tier
 INSERT INTO aidaa_core.ref_location
     (root_org_id, parent_location_id, location_code, location_name, country, province, city)
-SELECT NULL, p.location_id, v.code, v.name, 'Indonesia', v.prov, v.city
+SELECT NULL, p.location_id, v.code, v.name, 'Indonesia', v.prov2, v.city
 FROM (VALUES
   ('PROV-AC', 'KAB-ACEH_SELATAN', 'Kabupaten Aceh Selatan', 'Aceh', 'Aceh Selatan'),
   ('PROV-AC', 'KAB-ACEH_TENGGARA', 'Kabupaten Aceh Tenggara', 'Aceh', 'Aceh Tenggara'),
@@ -570,10 +571,24 @@ FROM (VALUES
 JOIN aidaa_core.ref_location p ON p.location_code = v.prov AND p.root_org_id IS NULL
 ON CONFLICT (location_code) WHERE root_org_id IS NULL DO NOTHING;
 
+-- 2b. province spelling heal. The kab/kota block must carry the province NAME (v.prov2), the same
+-- spelling the PROV rows and the org tier use - a past release took v.prov (the parent code,
+-- 'PROV-JB') and that breaks province comparisons in budget_core.location_fits. INSERT ... DO NOTHING
+-- would keep such rows on databases seeded before the fix, so recompose from the parent row here.
+-- Rerunnable; heals any database seeded by the older version.
+UPDATE aidaa_core.ref_location child
+SET province = parent.province
+FROM aidaa_core.ref_location parent
+WHERE child.root_org_id IS NULL
+  AND child.parent_location_id = parent.location_id
+  AND child.province IS DISTINCT FROM parent.province;
+
 -- 3. VERIFICATION (run after the seed)
--- Expect 552 global-tier rows: 38 provinces + 514 kab/kota, every kab/kota parented:
+-- Expect 552 global-tier rows: 38 provinces + 514 kab/kota, every kab/kota parented, every kab/kota
+-- province column spelt as the province NAME (never 'PROV-...'):
 -- SELECT (SELECT count(*) FROM aidaa_core.ref_location WHERE root_org_id IS NULL) AS global_rows,
---        (SELECT count(*) FROM aidaa_core.ref_location WHERE root_org_id IS NULL AND parent_location_id IS NOT NULL) AS with_parent;
+--        (SELECT count(*) FROM aidaa_core.ref_location WHERE root_org_id IS NULL AND parent_location_id IS NOT NULL) AS with_parent,
+--        (SELECT count(*) FROM aidaa_core.ref_location WHERE root_org_id IS NULL AND parent_location_id IS NOT NULL AND province LIKE 'PROV-%') AS bad_province;
 -- A kab/kota row is silently skipped when its province row is missing; rerun the whole seed to heal.
 
 -- 4. DEDUPE CANDIDATES (review only - run nothing from here)
