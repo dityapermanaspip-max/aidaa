@@ -122,6 +122,12 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25 (go code, owner test pending): to-do 4 built — budget lines above the SBM reference are flagged
+  and need a reason (rule in docs/domains/rates-and-budget.md): the plan budget AI modal carries a typed
+  unit_rate with an "Di atas SBM" badge and a required Alasan textarea; accept re-checks server-side (422
+  lists the offenders, otherwise the typed rate stands and the reason rides into budget_line.notes). Every
+  other path keeps refusing typed unit_rates for SBM components. Service-layer smoke green
+  (verify_over_ref.py): annotate + 422 + override-with-reason all pass.
 - 2026-10-25 (fix batch): killed the province-code bug the sweep found (see known gaps) — seed column fix
   (`v.prov2`) + healing UPDATE + provinces ON CONFLICT, and a `'PROV-'`-tolerant `location_fits`; all
   applied and re-verified locally (fitting True everywhere, picker 4/4 candidates, 11/11 resolution).
@@ -218,7 +224,10 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    auditor grade hints + home location already in the auditor form. Remaining: confirm the codes typed by the
    owner match the approved rate grades.
 3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
-4. Flag budget lines above the SBM reference with a required reason.
+4. (Built 2026-10-25, owner test pending) Budget lines above the SBM reference are flagged and need a reason:
+   the plan budget AI modal carries a typed unit_rate with an "Di atas SBM" badge and a required Alasan; accept
+   re-checks server-side (422 lists the offenders, otherwise the typed rate stands and the reason rides into
+   notes). Every other path keeps refusing typed unit_rates for SBM components.
 5. (Built 2026-10-25, owner pass pending) AI helpers: library_improvement, team, expertise_extract + the
    one-column-per-grade SBM parser. Patch 09 is APPLIED locally (2026-10-25); still run it on the VPS, restart
    the backend there, then the browser pass over the four surfaces (details in "Written, NOT yet exercised").

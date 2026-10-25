@@ -29,4 +29,9 @@ province, city names must match exactly. Kota X and Kab. X are different locatio
 - At issue, plan lines are copied (copied_from_line_id). assignment_funding must equal the budget total at issue.
   The funding source ceiling is enforced. Funding changes only while draft.
 - Deviation is CALCULATED (v_plan_deviation), never stored by hand.
-- SBM is reference, not a block. Planned: flag lines above the SBM reference with a required reason (with trip logic).
+- SBM is reference, not a block ABOVE the reference. The plan budget AI modal lets the drafter type a unit_rate;
+  when the typed value exceeds the line's approved rate (the SBM ceiling), the line is flagged over_ref and needs
+  a reason. Accept re-computes the flag server-side (the client flag is never trusted): 422 listing the offending
+  lines when a reason is missing, otherwise the typed unit_rate is kept and the reason is stored in notes.
+  resolve_price still refuses a typed unit_rate for SBM components everywhere OUTSIDE the modal - the modal is
+  the one sanctioned door above the ceiling.

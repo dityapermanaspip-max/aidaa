@@ -184,7 +184,7 @@ def generate_draft(db: Session, plan_id: UUID, payload: PlanBudgetRequest, user_
                     component_id=c.component_id, component_code=c.component_code, auditor_id=m.auditor_id,
                     username=m.username, location_id=u.location_id, rate_id=rate.rate_id if rate else None,
                     quantity=qty, unit_rate=unit_rate, amount=round(qty * unit_rate, 2), basis="standard",
-                    status=status, note=note))
+                    status=status, note=note, ref_amount=float(rate.amount) if rate else None))
     if not lines:
         raise HTTPException(status_code=409, detail="No line could be built, check unit locations and team homes")
     warnings.append("Tickets (actual cost) are not included, add them by hand")
@@ -205,6 +205,41 @@ def generate_draft(db: Session, plan_id: UUID, payload: PlanBudgetRequest, user_
 
 # --- human decision: only here does AI output become budget lines of the DRAFT version ---
 
+
+def _annotate_above_ref(db: Session, out: dict) -> None:
+    """Recompute the over-reference flag server-side (the client flag is never trusted) and require a
+    reason when a typed unit_rate sits above the approved rate of that line (the SBM ceiling). Rates
+    for per_day_worked/per_night components are the reference: an accepted line keeps the higher
+    typed unit_rate only when the reason is filled (the reason rides into budget_line.notes)."""
+    ids = [x["rate_id"] for x in out["lines"] if x.get("rate_id")]
+    amounts: dict[str, float] = {}
+    if ids:
+        rows = db.execute(text("""
+            SELECT rate_id, amount FROM aidaa_core.ref_cost_rate
+            WHERE rate_id = ANY(CAST(:ids AS uuid[]))
+        """), {"ids": [str(i) for i in ids]}).fetchall()
+        amounts = {str(r.rate_id): float(r.amount) for r in rows}
+    bad = []
+    for x in out["lines"]:
+        x["over_ref"] = False
+        x["reason"] = (x.get("reason") or None)
+        if not x.get("rate_id"):
+            x["ref_amount"] = None
+            continue
+        ref = amounts.get(str(x["rate_id"]))
+        x["ref_amount"] = ref
+        typed = x.get("unit_rate")
+        if typed is None or ref is None:
+            continue
+        over = float(typed) > ref + 0.005
+        x["over_ref"] = over
+        if over and not (x["reason"] or "").strip():
+            bad.append(f"{x.get('component_code')} - {x.get('username') or 'team'}: "
+                       f"unit_rate {float(typed):g} above reference {ref:g}")
+    if bad:
+        raise HTTPException(status_code=422, detail=(
+            "Lines above the SBM reference need a reason before accepting: " + "; ".join(bad)))
+
 def _apply(db: Session, s: dict, out: dict, user_id: UUID):
     plan_id = s["record_id"]
     version = editable_plan(db, plan_id, user_id)  # draft plan, detailed mode, caller is the drafter
@@ -218,6 +253,11 @@ def _apply(db: Session, s: dict, out: dict, user_id: UUID):
                                 quantity=x["quantity"], notes=x.get("note"))
         price = resolve_price(db, body.component_id, body.rate_id, None, body.location_id,
                               root_id=root_id, period_start=plan["period_start"])
+        # The reference price stands unless the decision carried a typed unit_rate; over the reference
+        # that is allowed only with a reason (checked in _annotate_above_ref) and the reason is the note.
+        if x.get("unit_rate") is not None:
+            price["unit_rate"] = float(x["unit_rate"])
+        body.notes = (x.get("reason") or "").strip() or x.get("note")
         line = insert_line(db, plan_id, None, version, body, price, user_id)
         db.execute(text("""
             UPDATE aidaa_core.budget_line SET source = 'ai_suggestion', ai_suggestion_id = CAST(:s AS uuid)
@@ -244,6 +284,7 @@ def decide_draft(db: Session, plan_id: UUID, suggestion_id: UUID, payload: Sugge
         raise HTTPException(status_code=400, detail="edited_output is only allowed when decision is 'edited'")
 
     if payload.decision != "rejected":
+        _annotate_above_ref(db, out)
         _apply(db, s, out, user_id)
     db.execute(text("""
         UPDATE aidaa_ai.ai_suggestion

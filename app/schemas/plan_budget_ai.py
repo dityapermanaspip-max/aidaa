@@ -34,6 +34,9 @@ class PlanBudgetLine(BaseModel):
     basis: Literal["standard", "at_cost"] = "standard"
     status: Literal["ok", "no_rate", "manual"] = "ok"  # no_rate: nothing fits, manual: several fit or typed by hand
     note: Optional[str] = Field(None, max_length=500)
+    over_ref: bool = False    # the typed unit_rate is above the approved rate (the SBM ceiling): reason required
+    reason: Optional[str] = Field(None, max_length=500)  # why this line may sit above the SBM reference
+    ref_amount: Optional[float] = None  # the approved amount the line was priced from, display only
 
 
 class PlanBudgetDraft(BaseModel):

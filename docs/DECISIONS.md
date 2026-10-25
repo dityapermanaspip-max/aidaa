@@ -299,3 +299,20 @@ Format: date, decision, reason.
   (docs/02_DATABASE.md), never patch 03 after patch 10.
 - Reason: a repeatable runner without duplicated connection settings or hand-reading `.env`; the API engine
   is the single source of truth. The agent still writes nothing: the owner applies the files.
+
+## 2026-10-25 (continued): the plan budget AI modal is the one door above the SBM reference (to-do 4)
+
+- Built: a budget line whose typed unit_rate exceeds the approved rate it was priced from (the SBM ceiling)
+  is flagged `over_ref` and needs a reason. The flag lives on the AI draft line (`PlanBudgetLine` gains
+  `over_ref`, `reason`, `ref_amount`); generate fills `ref_amount` from the rate, and decide's
+  `_annotate_above_ref` RE-computes the flag server-side from the rate table - a client-sent flag is never
+  trusted.
+- Accept with a missing reason -> 422 listing the offenders ("COMPONENT - user: unit_rate X above reference
+  Y"). Accept with a reason -> resolve_price still prices from the approved rate, then `_apply` overrides the
+  typed unit_rate in and stores the reason in `budget_line.notes` (no DDL needed). Every other path keeps
+  refusing typed unit_rates for SBM components (resolve_price), so the plan budget AI modal is the ONE
+  sanctioned door above the ceiling.
+- Verified by service-layer smoke inside rolled-back savepoints: a clean line is unflagged with `ref_amount`
+  set; above without reason -> 422; above with reason -> allowed, and the overridden insert carries the typed
+  unit_rate plus notes=reason. The end-to-end accept flow still waits for a real plan in the local DB
+  (0 plans/assignments today); service-layer, not token, probes are the established pattern.
