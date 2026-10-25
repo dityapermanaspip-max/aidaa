@@ -12,6 +12,18 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Global location tier, patch 10 + national seed (2026-10-25)**: `ref_location` now holds TWO tiers in one
+  table — `root_org_id IS NULL` = shared national master (BPS: 38 provinces + 514 kab/kota, read-only in the
+  app) and `root_org_id = <root>` = the org's own rows, unchanged. DDL
+  `sql/aidaa_patch_10_location_master.sql` (nullable root + two partial unique indexes; makes the two SBM
+  seeds' `ON CONFLICT` targets partial-index aware — both seeds were updated for that). Read side: the
+  locations list/get, auditor home, budget/realisation refs, base location and trip drafts accept global
+  rows; SBM place matching is now two-pass (org rows first, then national, then a new org `CITY-` row; an
+  exact name spelling beats a longer one when several places match). Write side: editing/deactivating a
+  global row answers 403; the owner reruns `sql/sql_seed/seed_locations_indonesia.sql` to update the master.
+  FE: the locations page shows a Sumber badge (BPS/Organisasi) and locks Ubah/Nonaktifkan for BPS rows
+  (MasterCrud gained the additive `editableRow`). Import check and `npx tsc --noEmit` pass; NOT exercised in
+  the browser, DDL and seed not yet run.
 - **Home base and auditor grade screen (2026-10-24)**: `PUT/GET /master/audit-setting` now also carries
   `base_location_id` (both fields optional in `AuditSettingIn`, explicit null clears it; row must exist,
   so 409 until the IAU is set; location validated active + same root). FE: the settings page has a
@@ -202,6 +214,12 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
    build ≤5 questions, leader batch issue, copy the public link, answer anonymously on /q/[token],
    PIC in-app entry, results, regenerate/close). AI helpers (creator + working-paper-from-answers)
    are deferred; see DECISIONS.md.
+9. (Built 2026-10-25, owner pass pending) Global location tier: run `sql/aidaa_patch_10_location_master.sql`
+   locally then on the VPS (after 09; do NOT rerun patch 03 afterwards — its backfill would claim the global
+   rows), then `sql/sql_seed/seed_locations_indonesia.sql` (38 provinces + 514 kab/kota as global rows, safe
+   to rerun), restart the backend, then the browser pass: locations page badge, a global row refuses
+   edit/deactivate (403), and an SBM paste that matches a national row. Do NOT run the seed before patch 10
+   (its global-tier INSERT needs the partial index).
 
 ## Known gaps
 - Findings have no unit column.
@@ -237,3 +255,8 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 - `sql/aidaa_patch_09_expertise_ai.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
   (locally, then on the VPS, after patches 06/07/08) the expertise extraction accept step (and the HR
   task handler) fails with 500 on the missing `ai_suggestion_id` column; generate and list still work.
+- `sql/aidaa_patch_10_location_master.sql` is WRITTEN but NOT applied (2026-10-25): until the owner runs it
+  `root_org_id` stays NOT NULL, so the national-tier seed and the read sweep do nothing useful. The seed
+  `sql/sql_seed/seed_locations_indonesia.sql` (552 global rows) is WRITTEN but NOT run and must go AFTER
+  the patch. Both SBM seeds now carry the partial-index ON CONFLICT predicate, safe on patched DBs only.
+- `app/services/trip_ai.py` is 373 lines (cap 300) — pre-existing; split it before its next feature change.

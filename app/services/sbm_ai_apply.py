@@ -13,17 +13,20 @@ from app.services.sbm_ai_parse import PROV_NAMES
 
 
 def _ensure_place(db: Session, root: str, uid: str, spec: dict):
-    """Existing location wins; missing ones are created under the root."""
+    """Existing location wins (the organisation's row or the shared national master); missing
+    ones are created under the root."""
     if spec.get("location_id"):
         ok = db.execute(text("""
             SELECT 1 FROM aidaa_core.ref_location
-            WHERE location_id = CAST(:i AS uuid) AND root_org_id = CAST(:r AS uuid)
+            WHERE location_id = CAST(:i AS uuid)
+              AND (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL)
         """), {"i": str(spec["location_id"]), "r": root}).fetchone()
         if ok:
             return spec["location_id"]
     r = db.execute(text("""
         SELECT location_id FROM aidaa_core.ref_location
-        WHERE root_org_id = CAST(:r AS uuid) AND location_code = :c
+        WHERE (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL) AND location_code = :c
+        ORDER BY root_org_id IS NULL, location_id LIMIT 1
     """), {"r": root, "c": spec["code"]}).fetchone()
     if r:
         return r.location_id

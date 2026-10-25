@@ -28,8 +28,11 @@
 - Shapes tried in order: province (31, 30, 16), road (1), route (17), single national amount (3). Units OP, OH, Orang/Kali.
 - Row numbers of 100+ have no dot. Page headers are ignored. Cut-off rows are skipped and listed. in_source marks amounts whose
   text exists in the source.
-- Places match existing locations first (Kab. = Kabupaten, Kota/Kab. prefix kept). Unmatched places become CITY-<NAME>.
-  A name matching several locations is skipped and reported.
+- Places match existing locations first, then the shared national master (`ref_location.root_org_id IS NULL`,
+  the BPS tier), then become CITY-<NAME> org rows (Kab. = Kabupaten, Kota/Kab. prefix kept). A name matching
+  several locations of one tier is skipped and reported; an exact name spelling wins over a longer one.
+  Resolution is two-pass (org tier first) so org CITY- and national KAB- rows are never compared against each
+  other for the same paste.
 - Accept creates missing components and locations and DRAFT rates (Finance submits, Board approves). Duplicates are skipped.
 - Permissions: audit.costrate.create to generate and decide, audit.costrate.read for the model list.
 - Built (2026-10-25): a second table mode, `column_kind` 'grade'. ONE component; each amount column is one official

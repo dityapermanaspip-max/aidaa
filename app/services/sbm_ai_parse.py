@@ -198,8 +198,8 @@ def _core(s) -> str:
     return re.sub(r"^(kabupaten|kota)\s+", "", _nm(s))
 
 
-def _resolve(rows, spec: dict):
-    """Match a place to an existing location of the root. Returns (location_id or None, ambiguous)."""
+def _match_rows(rows, spec: dict):
+    """Match a place spec against ONE tier of ref_location rows (the org's or the national master)."""
     code = spec["code"].lower()
     hit = [r for r in rows if r.location_code.lower() == code]
     if not hit and not code.startswith("prov-"):
@@ -211,6 +211,22 @@ def _resolve(rows, spec: dict):
         if len(hit) > 1 and spec.get("province"):
             narrowed = [r for r in hit if r.province and _nm(r.province) == _nm(spec["province"])]
             hit = narrowed or hit
-    if len(hit) > 1:
-        return None, True
-    return (hit[0].location_id if hit else None), False
+        if len(hit) > 1:
+            # the row whose name is spelled exactly as in the table beats longer spellings
+            exact = [r for r in hit if _nm(r.location_name) == key]
+            hit = exact or hit
+    return hit
+
+
+def _resolve(rows, spec: dict):
+    """Match a place to an existing location: the organisation's own rows first, then the shared
+    national master (ref_location rows with root_org_id IS NULL). Returns (location_id or None, ambiguous)."""
+    tiers = ([r for r in rows if r.root_org_id is not None],
+             [r for r in rows if r.root_org_id is None])
+    for tier in tiers:
+        hit = _match_rows(tier, spec)
+        if len(hit) == 1:
+            return hit[0].location_id, False
+        if len(hit) > 1:
+            return None, True
+    return None, False

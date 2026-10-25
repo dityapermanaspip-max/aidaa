@@ -181,8 +181,9 @@ def generate_draft(db: Session, payload: SbmDraftRequest, user_id: UUID) -> dict
 def _finish_draft(db: Session, root, payload, user_id, shape, entries, rates, places,
                   comps, naming, grade_mode, skipped, engine, model) -> dict:
     rows = db.execute(text("""
-        SELECT location_id, location_code, location_name, city, province FROM aidaa_core.ref_location
-        WHERE root_org_id = CAST(:r AS uuid) AND is_active = TRUE
+        SELECT location_id, location_code, location_name, city, province, root_org_id
+        FROM aidaa_core.ref_location
+        WHERE (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL) AND is_active = TRUE
     """), {"r": str(root)}).fetchall()
     place_list, bad = [], set()
     for code, spec in places.items():

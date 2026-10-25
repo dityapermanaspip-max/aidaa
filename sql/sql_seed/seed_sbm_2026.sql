@@ -26,7 +26,7 @@ FROM (VALUES
   ('PROV-PA','Papua'),('PROV-PB','Papua Barat'),('PROV-PD','Papua Barat Daya'),('PROV-PT','Papua Tengah'),
   ('PROV-PS','Papua Selatan'),('PROV-PE','Papua Pegunungan')
 ) AS v(code, province)
-ON CONFLICT (root_org_id, location_code) DO NOTHING;
+ON CONFLICT (root_org_id, location_code) WHERE root_org_id IS NOT NULL DO NOTHING;
 
 -- 3. RATES (one row per province, four grades expanded below)
 -- Columns: location_code, PEJABAT_NEGARA_ESELON_I, ESELON_II, ESELON_III_GOL_IV, ESELON_IV_GOL_III_II_I
@@ -86,6 +86,6 @@ WHERE NOT EXISTS (
 
 -- 4. VERIFICATION (run after the seed)
 -- Expect 38 locations and 152 rates for 2026:
--- SELECT (SELECT count(*) FROM aidaa_core.ref_location WHERE location_code LIKE 'PROV-%') AS provinces, (SELECT count(*) FROM aidaa_core.ref_cost_rate WHERE effective_from = DATE '2026-01-01') AS rates_2026;
+-- SELECT (SELECT count(*) FROM aidaa_core.ref_location WHERE location_code LIKE 'PROV-%' AND root_org_id IS NOT NULL) AS provinces, (SELECT count(*) FROM aidaa_core.ref_cost_rate WHERE effective_from = DATE '2026-01-01') AS rates_2026;
 -- Cutoff test: rates valid on a 2026 date (expect 152) and on a 2027 date (expect 0 until you add 2027 data):
 -- SELECT count(*) FILTER (WHERE DATE '2026-06-15' BETWEEN effective_from AND effective_to) AS valid_2026, count(*) FILTER (WHERE DATE '2027-06-15' BETWEEN effective_from AND COALESCE(effective_to, DATE '9999-12-31')) AS valid_2027 FROM aidaa_core.ref_cost_rate WHERE approval_status = 'approved';

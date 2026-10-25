@@ -241,3 +241,30 @@ Format: date, decision, reason.
   'ai_suggestion' added to the source CHECK. The feature CHECK already knew all the new feature names (patch 02),
   so no other DDL was needed. The acceptance of a suggestion whose batch spans rows is logged per row
   (log_status) and the HR decision per batch as a comment.
+
+## 2026-10-25 (continued): Global location tier in ref_location (BPS national master)
+
+- ref_location stays ONE table with two tiers: `root_org_id IS NULL` = shared national master (BPS provinces
+  and kab/kota; read-only in the app, updated by rerunning the seed) and `root_org_id = <root>` = the
+  organisation's own rows, untouched. Reason: one table keeps every FK valid (rates, visits, trip legs,
+  units, auditor home, base location) while org rows keep today's behavior. Supersedes part of the 2026-09
+  entry "Master data is scoped per root org": locations now read the org's rows FIRST and fall back to the
+  shared national tier.
+- Patch 10 only relaxes `root_org_id` to NULL and replaces `uq_ref_location_root_code` with two partial
+  unique indexes: org tier `(root_org_id, location_code) WHERE root_org_id IS NOT NULL` and global tier
+  `(location_code) WHERE root_org_id IS NULL`. A code may exist in BOTH tiers; resolution reads the org row
+  first, so that is safe. Warning: do NOT rerun patch 03 after patch 10 — its backfill would claim the
+  global rows. The two SBM seeds got the matching `WHERE root_org_id IS NOT NULL` predicate in their
+  `ON CONFLICT` so they keep working after the index swap.
+- Global rows are app-read-only WITHOUT a new IAM permission: update/deactivate pre-check the row tier and
+  answer 403; the owner updates the master by rerunning `sql/sql_seed/seed_locations_indonesia.sql`
+  (source: emsifa/api-wilayah-indonesia v2, Kepmendagri 2025 ed.). No yearly refresh — append-style, the
+  seed is rerun only when a province or kab/kota appears (the 2022 Papua provinces are already included).
+- Codes: provinces reuse the exact seed_sbm_2026 list (PROV- + ISO 3166-2 suffix, name "Provinsi X");
+  kab/kota codes are KAB-/KOTA- + uppercase name (KOTA-BANDUNG); location_name keeps the official
+  "Kabupaten/Kota Administrasi X" spelling and city holds the bare name.
+- SBM place resolution became two-pass (org rows first, then national) instead of one pass over a merged
+  list: one pass makes an org CITY- row and the global KAB- row of the same place ambiguous for no reason.
+  When one tier matches several places in the same province, the row whose name is spelled EXACTLY as in the
+  table wins ("Kota Bandung" beats substring hits). Genuinely bare names ("Bandung") stay ambiguous when the
+  master holds both the kab and the kota of it — write "Kab./Kota" or let earlier-created org rows win.

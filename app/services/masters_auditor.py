@@ -60,7 +60,7 @@ def create_auditor(db: Session, payload: AuditorCreate, user_id: UUID) -> dict:
         raise HTTPException(status_code=400,
                             detail="home_org_id must be inside the active root organization")
     if payload.home_location_id:
-        assert_in_root(db, "aidaa_core.ref_location", payload.home_location_id, root, "Location")
+        assert_in_root(db, "aidaa_core.ref_location", payload.home_location_id, root, "Location", allow_global=True)
     try:
         row = db.execute(text("""
             INSERT INTO aidaa_core.auditor
@@ -93,7 +93,7 @@ def update_auditor(db: Session, auditor_id: UUID, payload: AuditorUpdate, user_i
         raise HTTPException(status_code=400,
                             detail="home_org_id must be inside the active root organization")
     if data.get("home_location_id"):
-        assert_in_root(db, "aidaa_core.ref_location", data["home_location_id"], root, "Location")
+        assert_in_root(db, "aidaa_core.ref_location", data["home_location_id"], root, "Location", allow_global=True)
     row = _update_row(db, "aidaa_core.auditor", "auditor_id", auditor_id, data,
                       {"home_org_id", "home_location_id"}, user_id, "auditor_id", root)
     if not row:

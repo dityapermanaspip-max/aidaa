@@ -30,17 +30,24 @@ def root_of_org(db: Session, org_id: UUID) -> UUID:
     return row.r
 
 
-def assert_in_root(db: Session, table: str, value: UUID, root_id: UUID, label: str):
-    """The record must exist in this root. A record of another root answers 404, so it stays invisible."""
+def assert_in_root(db: Session, table: str, value: UUID, root_id: UUID, label: str, allow_global: bool = False):
+    """The record must exist in this root. A record of another root answers 404, so it stays invisible.
+    allow_global lets the caller accept the shared national master rows of ref_location (root_org_id IS NULL)."""
     pk = SCOPED[table]
-    row = db.execute(text(f"SELECT root_org_id FROM {table} WHERE {pk} = CAST(:v AS uuid)"), {"v": str(value)}).fetchone()
-    if not row or str(row.root_org_id) != str(root_id):
+    scope = " AND (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL)" if allow_global \
+        else " AND root_org_id = CAST(:r AS uuid)"
+    row = db.execute(text(f"SELECT root_org_id FROM {table} WHERE {pk} = CAST(:v AS uuid){scope}"),
+                     {"v": str(value), "r": str(root_id)}).fetchone()
+    if not row:
         raise HTTPException(status_code=404, detail=f"{label} not found")
 
 
-def scoped_get(db: Session, table: str, cols: str, value: UUID, root_id: UUID, label: str) -> dict:
+def scoped_get(db: Session, table: str, cols: str, value: UUID, root_id: UUID, label: str,
+               allow_global: bool = False) -> dict:
     pk = SCOPED[table]
-    row = db.execute(text(f"SELECT {cols} FROM {table} WHERE {pk} = CAST(:v AS uuid) AND root_org_id = CAST(:r AS uuid)"),
+    scope = " AND (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL)" if allow_global \
+        else " AND root_org_id = CAST(:r AS uuid)"
+    row = db.execute(text(f"SELECT {cols} FROM {table} WHERE {pk} = CAST(:v AS uuid){scope}"),
                      {"v": str(value), "r": str(root_id)}).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"{label} not found")

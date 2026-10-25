@@ -319,7 +319,7 @@ def _apply(db: Session, s: dict, out: dict, user_id: UUID):
         vs, ve = date.fromisoformat(v["visit_start"]), date.fromisoformat(v["visit_end"])
         if vs < start or ve > end:
             raise HTTPException(status_code=400, detail="A visit is outside the assignment period")
-        assert_in_root(db, _LOC, v["location_id"], root, "Location")
+        assert_in_root(db, _LOC, v["location_id"], root, "Location", allow_global=True)
         create_visit(db, assignment_id, VisitCreate(
             location_id=v["location_id"], visit_start=vs, visit_end=ve, purpose=v.get("purpose"),
             attendee_ids=v["attendee_ids"]), user_id)
@@ -328,8 +328,8 @@ def _apply(db: Session, s: dict, out: dict, user_id: UUID):
         o, d = locs.get(str(l["origin_location_id"])), locs.get(str(l["destination_location_id"]))
         if not o or not d:
             raise HTTPException(status_code=400, detail="A leg uses an unknown location")
-        assert_in_root(db, _LOC, l["origin_location_id"], root, "Location")
-        assert_in_root(db, _LOC, l["destination_location_id"], root, "Location")
+        assert_in_root(db, _LOC, l["origin_location_id"], root, "Location", allow_global=True)
+        assert_in_root(db, _LOC, l["destination_location_id"], root, "Location", allow_global=True)
         if _match(o, d) == "exact" and o["id"] == d["id"]:
             continue
         code = BUSINESS_CODE if l["ticket_class"] == "business" else ECONOMY_CODE

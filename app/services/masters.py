@@ -52,14 +52,16 @@ def _update_row(db: Session, table: str, pk: str, pk_value: UUID, data: dict,
 # --- ref_location ---
 
 _LOC = "aidaa_core.ref_location"
-_LOC_COLS = ("location_id, location_code, location_name, country, province, city, address, "
+_LOC_COLS = ("location_id, root_org_id, location_code, location_name, country, province, city, address, "
              "is_active, created_at, updated_at")
 
 
 def list_locations(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None) -> list[dict]:
+    # Own rows plus the shared national master (root_org_id IS NULL).
     rows = db.execute(text(f"""
         SELECT {_LOC_COLS} FROM {_LOC}
-        WHERE root_org_id = CAST(:r AS uuid) AND (:active_only = FALSE OR is_active = TRUE)
+        WHERE (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL)
+          AND (:active_only = FALSE OR is_active = TRUE)
           AND (CAST(:q AS text) IS NULL
                OR location_name ILIKE CAST(:q AS text) OR location_code ILIKE CAST(:q AS text)
                OR city ILIKE CAST(:q AS text) OR province ILIKE CAST(:q AS text))
@@ -69,7 +71,7 @@ def list_locations(db: Session, user_id: UUID, active_only: bool = True, search:
 
 
 def get_location(db: Session, user_id: UUID, location_id: UUID) -> dict:
-    return scoped_get(db, _LOC, _LOC_COLS, location_id, get_root(db, user_id), "Location")
+    return scoped_get(db, _LOC, _LOC_COLS, location_id, get_root(db, user_id), "Location", allow_global=True)
 
 
 def create_location(db: Session, payload: LocationCreate, user_id: UUID) -> dict:
@@ -88,10 +90,22 @@ def create_location(db: Session, payload: LocationCreate, user_id: UUID) -> dict
     return dict(row._mapping)
 
 
+def _location_editable(db: Session, location_id: UUID) -> None:
+    """National master rows (root_org_id IS NULL) are read-only in the app; the owner updates
+    them by rerunning the seed. The row of another root simply does not exist."""
+    row = db.execute(text(f"SELECT root_org_id FROM {_LOC} WHERE location_id = CAST(:v AS uuid)"),
+                     {"v": str(location_id)}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Location not found")
+    if row.root_org_id is None:
+        raise HTTPException(status_code=403, detail="Shared national location, read-only here")
+
+
 def update_location(db: Session, location_id: UUID, payload: LocationUpdate, user_id: UUID) -> dict:
     data = payload.model_dump(exclude_unset=True)
     if not data:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    _location_editable(db, location_id)
     row = _update_row(db, _LOC, "location_id", location_id, data, set(), user_id, _LOC_COLS, get_root(db, user_id))
     if not row:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -99,6 +113,7 @@ def update_location(db: Session, location_id: UUID, payload: LocationUpdate, use
 
 
 def deactivate_location(db: Session, location_id: UUID, user_id: UUID) -> dict:
+    _location_editable(db, location_id)
     row = _update_row(db, _LOC, "location_id", location_id, {"is_active": False}, set(), user_id,
                       _LOC_COLS, get_root(db, user_id))
     if not row:

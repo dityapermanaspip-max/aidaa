@@ -82,7 +82,8 @@ def set_base_location(db: Session, user_id: UUID, base_location_id: Optional[UUI
     if base_location_id is not None:
         ok = db.execute(text("""
             SELECT 1 FROM aidaa_core.ref_location
-            WHERE location_id = CAST(:b AS uuid) AND is_active = TRUE AND root_org_id = CAST(:r AS uuid)
+            WHERE location_id = CAST(:b AS uuid) AND is_active = TRUE
+              AND (root_org_id = CAST(:r AS uuid) OR root_org_id IS NULL)
         """), {"b": str(base_location_id), "r": str(root)}).fetchone()
         if not ok:
             raise HTTPException(status_code=400,

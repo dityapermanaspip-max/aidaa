@@ -82,7 +82,7 @@ def resolve_price(db: Session, component_id: UUID, rate_id: Optional[UUID], unit
         raise HTTPException(status_code=409, detail="Cost component is inactive")
     if location_id:
         if root_id is not None:
-            assert_in_root(db, "aidaa_core.ref_location", location_id, root_id, "Location")
+            assert_in_root(db, "aidaa_core.ref_location", location_id, root_id, "Location", allow_global=True)
         else:
             _exists(db, "aidaa_core.ref_location", "location_id", location_id, "Location")
 

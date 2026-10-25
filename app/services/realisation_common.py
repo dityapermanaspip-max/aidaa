@@ -34,7 +34,7 @@ def assert_cost_ref(db: Session, user_id: UUID, component_id: UUID, location_id=
     root = get_root(db, user_id)
     assert_in_root(db, "aidaa_core.ref_cost_component", component_id, root, "Cost component")
     if location_id:
-        assert_in_root(db, "aidaa_core.ref_location", location_id, root, "Location")
+        assert_in_root(db, "aidaa_core.ref_location", location_id, root, "Location", allow_global=True)
 
 
 def username_map(db: Session, assignment_id: UUID) -> dict:

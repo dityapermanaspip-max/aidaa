@@ -40,6 +40,7 @@ class LocationUpdate(BaseModel):
 
 class LocationOut(BaseModel):
     location_id: UUID
+    root_org_id: Optional[UUID] = None  # None = shared national master (read-only)
     location_code: str
     location_name: str
     country: str

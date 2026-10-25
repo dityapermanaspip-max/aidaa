@@ -50,7 +50,7 @@ FROM (VALUES
   ('PROV-JK', 'Provinsi DKI Jakarta', 'Indonesia', 'DKI Jakarta')
   -- one row per province in the annex
 ) AS v(code, name, country, province)
-ON CONFLICT (root_org_id, location_code) DO NOTHING;
+ON CONFLICT (root_org_id, location_code) WHERE root_org_id IS NOT NULL DO NOTHING;
 
 -- ---------------------------------------------------------------- 3. RATES
 -- VALUES columns: component_code, location_code ('' = national), grade ('' = any), amount.
