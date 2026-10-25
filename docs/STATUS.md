@@ -19,7 +19,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   seeds' `ON CONFLICT` targets partial-index aware — both seeds were updated for that). Read side: the
   locations list/get, auditor home, budget/realisation refs, base location and trip drafts accept global
   rows; SBM place matching is now two-pass (org rows first, then national, then a new org `CITY-` row; an
-  exact name spelling beats a longer one when several places match). Write side: editing/deactivating a
+  exact name spelling wins over others, and a bare name that matches both the Kabupaten and the Kota row of
+  the master resolves to the Kota row — owner decision 2026-10-25). WRITE side: editing/deactivating a
   global row answers 403; the owner reruns `sql/sql_seed/seed_locations_indonesia.sql` to update the master.
   FE: the locations page shows a Sumber badge (BPS/Organisasi) and locks Ubah/Nonaktifkan for BPS rows
   (MasterCrud gained the additive `editableRow`). Import check and `npx tsc --noEmit` pass; NOT exercised in

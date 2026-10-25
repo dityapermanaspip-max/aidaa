@@ -265,6 +265,10 @@ Format: date, decision, reason.
   "Kabupaten/Kota Administrasi X" spelling and city holds the bare name.
 - SBM place resolution became two-pass (org rows first, then national) instead of one pass over a merged
   list: one pass makes an org CITY- row and the global KAB- row of the same place ambiguous for no reason.
-  When one tier matches several places in the same province, the row whose name is spelled EXACTLY as in the
-  table wins ("Kota Bandung" beats substring hits). Genuinely bare names ("Bandung") stay ambiguous when the
-  master holds both the kab and the kota of it — write "Kab./Kota" or let earlier-created org rows win.
+  When one tier still matches several rows, the row whose name is spelled EXACTLY as in the table wins.
+- Owner decision (2026-10-25): a bare name ("Bandung") that matches BOTH the Kabupaten and the Kota row of
+  the national master resolves to the KOTA- row instead of being skipped — a bare name means the city
+  proper, and SBM rates are per province so the pick only names the place. Matching compares the
+  normalized code/name/city by equality (never a substring), so "Kab. X"/"Kota X" spellings keep hitting
+  their exact row, and org rows keep winning first (an org CITY- row means the national tier is never
+  consulted for that place).

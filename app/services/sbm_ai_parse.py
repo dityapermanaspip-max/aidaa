@@ -215,6 +215,13 @@ def _match_rows(rows, spec: dict):
             # the row whose name is spelled exactly as in the table beats longer spellings
             exact = [r for r in hit if _nm(r.location_name) == key]
             hit = exact or hit
+        if len(hit) > 1:
+            # a bare name ("Bandung") usually means the city proper: the national master's Kota row of
+            # the same spelling beats the Kabupaten and the superstring matches (e.g. Kabupaten Bandung Barat)
+            core = _core(spec["name"])
+            kota = [r for r in hit if r.location_code.upper().startswith("KOTA-")
+                    and core and _core(r.location_name) == core]
+            hit = kota or hit
     return hit
 
 

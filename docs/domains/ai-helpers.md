@@ -29,8 +29,10 @@
 - Row numbers of 100+ have no dot. Page headers are ignored. Cut-off rows are skipped and listed. in_source marks amounts whose
   text exists in the source.
 - Places match existing locations first, then the shared national master (`ref_location.root_org_id IS NULL`,
-  the BPS tier), then become CITY-<NAME> org rows (Kab. = Kabupaten, Kota/Kab. prefix kept). A name matching
-  several locations of one tier is skipped and reported; an exact name spelling wins over a longer one.
+  the BPS tier), then become CITY-<NAME> org rows (Kab. = Kabupaten, Kota/Kab. prefix kept). Matching
+  compares the normalized code/name/city by equality; a name matching several rows of one tier is skipped
+  and reported, except that an exact spelling wins, and a bare name that matches both the Kabupaten and the
+  Kota row resolves to the Kota row (a bare name means the city proper; SBM rates are per province).
   Resolution is two-pass (org tier first) so org CITY- and national KAB- rows are never compared against each
   other for the same paste.
 - Accept creates missing components and locations and DRAFT rates (Finance submits, Board approves). Duplicates are skipped.
