@@ -24,7 +24,7 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   global row answers 403; the owner reruns `sql/sql_seed/seed_locations_indonesia.sql` to update the master.
   FE: the locations page shows a Sumber badge (BPS/Organisasi) and locks Ubah/Nonaktifkan for BPS rows
   (MasterCrud gained the additive `editableRow`). Import check and `npx tsc --noEmit` pass; NOT exercised in
-  the browser, DDL and seed not yet run.
+  the browser. Patch 10 + the national seed are applied on the LOCAL DB (2026-10-25); the VPS still needs both.
 - **Home base and auditor grade screen (2026-10-24)**: `PUT/GET /master/audit-setting` now also carries
   `base_location_id` (both fields optional in `AuditSettingIn`, explicit null clears it; row must exist,
   so 409 until the IAU is set; location validated active + same root). FE: the settings page has a
@@ -46,8 +46,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   filters, Temuan and Rekomendasi tables). Not exercised in the browser yet.
 - **Korespondensi (2026-10-24)**: document requests (A), interview schedules (C) and the berita acara
   penyampaian notisi (D) per assignment. DDL = `sql/aidaa_patch_06_korespondensi.sql` (numbered 06
-  because patches 04/05 already exist) — **written, NOT yet run by the owner; run locally, then on the
-  VPS, before testing any of these endpoints** (tables do not exist until then; it also backfills BAP
+  because patches 04/05 already exist) — applied on the LOCAL DB (verified 2026-10-25); the VPS still
+  needs it before testing any of these endpoints there (it also backfills BAP
   skeletons for findings already communicated+). New service `app/services/execution/correspondence.py`
   + router `app/api/v1/aidaa/correspondence.py`: doc-req `GET|POST /assignment/{id}/doc-req`,
   `PATCH /doc-req/{id}`, `POST /doc-req/{id}/submit` (PIC), `/verify`; interviews
@@ -62,9 +62,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   interviews the logistics wrapper, BAP writes `audit.finding.communicate` (lead/supervisor), all
   reads `authorize_view` with `audit.finding.read` and PIC lists org-filtered. FE:
   `/dashboard/aidaa/exec/korespondensi` (Penugasan menu, after "Tim Audit") with three cards.
-  Import check passes; NOT exercised in the browser and DDL not yet run.
+  Import check passes; NOT exercised in the browser yet; patch 06 applied locally (2026-10-25), VPS pending.
 - **Kuesioner (2026-10-24)**: procedure-linked questionnaires. DDL = `sql/aidaa_patch_07_kuesioner.sql`
-  (numbered 07; **written, NOT yet run by the owner — run locally then on the VPS, after patch 06**).
+  (numbered 07; applied on the LOCAL DB 2026-10-25 — the VPS still needs it, after patch 06 there).
   It adds `needs_questionnaire` to `aidaa_core.exe_procedure` plus four tables: `assignment_questionnaire`
   (ONE per procedure via a UNIQUE `procedure_id`; status draft→issued→closed; `respondents_needed`;
   `public_token` uuid + `link_expires_at`), `questionnaire_question` (≤5 per questionnaire, kinds
@@ -87,7 +87,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   fourth card on `/dashboard/aidaa/exec/korespondensi` (`KorespondensiQuestionnaireCard`: coverage
   strip + per-procedure checkbox + builder + batch issue + results; PIC list + in-app entry) plus the
   no-auth public page `/q/[token]` and the no-auth BFF forwarder `/api/aidaa-public/[...path]`.
-  Import check + `npx tsc --noEmit` pass; NOT exercised in the browser and DDL not yet run.
+  Import check + `npx tsc --noEmit` pass; NOT exercised in the browser yet; patch 07 applied locally
+  (2026-10-25), VPS pending.
 - **AI helpers batch (2026-10-25)**: the three remaining helpers plus the SBM grade mode are built end to end
   (backend + FE); import check and `npx tsc --noEmit` pass; NOT exercised in the browser yet.
   - SBM grade mode: one component per grade-column table, `grade_columns` maps heading -> grade code, rates carry a
@@ -102,8 +103,9 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
     accept inserts pending rows (source 'ai_suggestion') and opens ONE `expertise`/`hr_verify` task for AIDAA.HR; the
     approval handler decides the whole batch together; FE `ExpertiseAiCard` (owner-only) on the auditor page; the
     approval inbox links the auditor of the batch's first row.
-  - **DDL `sql/aidaa_patch_09_expertise_ai.sql` must run first** (adds `expertise.ai_suggestion_id` and widens the
-    source CHECK) - until then generate/list work but ACCEPT fails with 500.
+  - **DDL `sql/aidaa_patch_09_expertise_ai.sql`** (adds `expertise.ai_suggestion_id` and widens the
+    source CHECK) is applied on the LOCAL DB (2026-10-25); the VPS still needs it — generate and list
+    work everywhere, but the ACCEPT step fails there with 500 until then.
 - SBM AI end to end: parser against real Lampiran 1, 16, 17, 30, 31 text, route rates, Web API (Gemini was busy).
 - Plan budget AI, plan detailed budget tab, rate date rule in budgeting, rate overlap 409, library AI drafts.
 - PDF import for SBM and library AI drafts: `app/api/v1/aidaa/doc_extract.py` (`POST /api/v1/aidaa/documents/extract`,
@@ -117,6 +119,13 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25 (go sql): patches 07 (kuesioner), 09 (expertise), 10 (location tiers) and
+  `sql/sql_seed/seed_locations_indonesia.sql` applied to the LOCAL database through
+  `scripts/apply_schema.py`, every file `--dry-run` first. Re-inspection verified:
+  `ref_location.root_org_id` nullable, `uq_ref_location_org_code` + `uq_ref_location_global_code` present
+  (old `uq_ref_location_root_code` gone), 552 global rows (38 provinces + 514 kab/kota, 514 parented), the
+  org tier untouched (39 rows, 38 of them legacy PROV rows) and the 152 approved 2026 lodging rates intact.
+  The VPS still has to run the same files.
 - 2026-10-25 (same day): `scripts/apply_schema.py` ports HILDA's SQL runner to AIDAA —
   `python scripts/apply_schema.py --file sql/<file>.sql [--dry-run] [--yes]`: settings loaded through
   `app.core.config` (only `user@host/database` printed), one transaction, `--dry-run` rolls back, `--yes`
@@ -128,7 +137,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   one pending at a time), `AIDAA.FINANCE` decides in the generic inbox, `GET` returns the latest
   task; approval/rejection are recorded as comments and lines may keep editing (no lock, resubmit
   allowed) - the latest task doubles as the verification state. `assignment_change`:
-  `sql/aidaa_patch_08_change_requests.sql` (NOT yet run) stages post-issue edits (dates, notes,
+  `sql/aidaa_patch_08_change_requests.sql` (applied locally 2026-10-25; VPS pending) stages post-issue
+  edits (dates, notes,
   document, extra units) in `assignment_change`; the leader files, the assignment's supervisor gets
   an assigned task (`_reviewer` path), and only an approved task applies the payload through the
   shared `_apply_assignment_edit` (same date/unit/conflict guards as the draft PATCH; the requester
@@ -204,29 +214,28 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
 3. Exercise the whole realisation feature in the FE end to end (advances, costs, variance, settlement approval by Finance).
 4. Flag budget lines above the SBM reference with a required reason.
 5. (Built 2026-10-25, owner pass pending) AI helpers: library_improvement, team, expertise_extract + the
-   one-column-per-grade SBM parser. Owner steps: run `sql/aidaa_patch_09_expertise_ai.sql` locally then on the VPS
-   (after patches 06/07/08), restart the backend, then the browser pass over the four surfaces (details in
-   "Written, NOT yet exercised").
-6. (Built 2026-10-25, owner pass pending) Approval wiring (item 6 done): run
-   `sql/aidaa_patch_08_change_requests.sql` locally then on the VPS, restart, then the browser pass -
+   one-column-per-grade SBM parser. Patch 09 is APPLIED locally (2026-10-25); still run it on the VPS, restart
+   the backend there, then the browser pass over the four surfaces (details in "Written, NOT yet exercised").
+6. (Built 2026-10-25, owner pass pending) Approval wiring (item 6 done): patch 08 is applied locally,
+   still run `sql/aidaa_patch_08_change_requests.sql` on the VPS, restart, then the browser pass -
    leader files a change on an issued assignment -> supervisor decides in Kotak Persetujuan -> fields
    applied; budget verification submit -> Finance decides -> strip updates. IAM matrix: FINANCE role
    holders need nothing new (inbox is global-role driven); supervisors must be active team members.
-7. (Built 2026-10-24, owner pass pending) Korespondensi: run `sql/aidaa_patch_06_korespondensi.sql` locally,
-   then on the VPS (endpoints error out until then), restart the backend, then the browser pass (doc-req
-   lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
+7. (Built 2026-10-24, owner pass pending) Korespondensi: patch 06 is applied locally (tables verified
+   2026-10-25); still run `sql/aidaa_patch_06_korespondensi.sql` on the VPS (endpoints error out there until
+   then), restart, then the browser pass (doc-req lifecycle, interviews, BAP stance + the resolve-gate 409). Also confirm the IAM matrix gives auditee PIC
    roles `audit.finding.read` org-mapped (same mapping Monev needs).
-8. Kuesioner (built 2026-10-24, owner test pending): run `sql/aidaa_patch_07_kuesioner.sql` locally
-   then on the VPS (after patch 06), restart the backend, then the browser pass (flag a procedure,
+8. Kuesioner (built 2026-10-24, owner test pending): patch 07 is APPLIED locally (2026-10-25); still run
+   `sql/aidaa_patch_07_kuesioner.sql` on the VPS (after patch 06 there), restart, then the browser pass
+   (flag a procedure,
    build ≤5 questions, leader batch issue, copy the public link, answer anonymously on /q/[token],
    PIC in-app entry, results, regenerate/close). AI helpers (creator + working-paper-from-answers)
    are deferred; see DECISIONS.md.
-9. (Built 2026-10-25, owner pass pending) Global location tier: run `sql/aidaa_patch_10_location_master.sql`
-   locally then on the VPS (after 09; do NOT rerun patch 03 afterwards — its backfill would claim the global
-   rows), then `sql/sql_seed/seed_locations_indonesia.sql` (38 provinces + 514 kab/kota as global rows, safe
-   to rerun), restart the backend, then the browser pass: locations page badge, a global row refuses
-   edit/deactivate (403), and an SBM paste that matches a national row. Do NOT run the seed before patch 10
-   (its global-tier INSERT needs the partial index).
+9. (Built 2026-10-25, owner pass pending) Global location tier: patch 10 + the national seed are APPLIED
+   locally (2026-10-25; 552 global rows verified). Still run `sql/aidaa_patch_10_location_master.sql` then
+   `sql/sql_seed/seed_locations_indonesia.sql` on the VPS (that order; do NOT rerun patch 03 afterwards —
+   its backfill would claim the global rows), restart, then the browser pass: locations page badge, a
+   global row refuses edit/deactivate (403), and an SBM paste that matches a national row.
 
 ## Known gaps
 - Findings have no unit column.
@@ -250,20 +259,20 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   exist; `realisation_settlement` is filled by the settlement approval batch (submitted rows are open -> settled
   via an `AIDAA.FINANCE` approval task). The `settlement` approval step was added to the `approval_step` seed in
   `aidaa_log_approval.sql` and applied to the database.
-- `sql/aidaa_patch_06_korespondensi.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
-  (locally, then on the VPS) every Korespondensi endpoint 500s on missing tables, and `resolve_finding`
-  would 409 on every responded finding (the gate query would fail; run the patch BEFORE testing).
-- `sql/aidaa_patch_07_kuesioner.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
-  (locally, then on the VPS, after patch 06) every Kuesioner endpoint 500s on missing tables; the
-  public `/q/[token]` page and the BFF `/api/aidaa-public/[...path]` forwarder depend on it too.
-- `sql/aidaa_patch_08_change_requests.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
-  (locally, then on the VPS) every change-request endpoint 500s on the missing `assignment_change`
-  table; the budget-verification flow does NOT need it.
-- `sql/aidaa_patch_09_expertise_ai.sql` is WRITTEN but NOT applied (2026-10): until the owner runs it
-  (locally, then on the VPS, after patches 06/07/08) the expertise extraction accept step (and the HR
-  task handler) fails with 500 on the missing `ai_suggestion_id` column; generate and list still work.
-- `sql/aidaa_patch_10_location_master.sql` is WRITTEN but NOT applied (2026-10-25): until the owner runs it
-  `root_org_id` stays NOT NULL, so the national-tier seed and the read sweep do nothing useful. The seed
-  `sql/sql_seed/seed_locations_indonesia.sql` (552 global rows) is WRITTEN but NOT run and must go AFTER
-  the patch. Both SBM seeds now carry the partial-index ON CONFLICT predicate, safe on patched DBs only.
+- `sql/aidaa_patch_06_korespondensi.sql` is APPLIED locally (2026-10, tables verified 2026-10-25): the VPS
+  still needs it — until then every Korespondensi endpoint 500s there, and `resolve_finding`
+  would 409 there on every responded finding (the gate query would fail; run the patch BEFORE testing).
+- `sql/aidaa_patch_07_kuesioner.sql` is APPLIED locally (2026-10-25): the VPS still needs it — until then
+  every Kuesioner endpoint 500s there; the public `/q/[token]` page and the BFF
+  `/api/aidaa-public/[...path]` forwarder depend on it too.
+- `sql/aidaa_patch_08_change_requests.sql` is APPLIED locally (2026-10-25, `assignment_change` verified):
+  the VPS still needs it — until then every change-request endpoint 500s there; the budget-verification
+  flow does NOT need it.
+- `sql/aidaa_patch_09_expertise_ai.sql` is APPLIED locally (2026-10-25): the VPS still needs it — until
+  then the expertise extraction accept step (and the HR task handler) fails there with 500 on the missing
+  `ai_suggestion_id` column; generate and list still work.
+- `sql/aidaa_patch_10_location_master.sql` + `sql/sql_seed/seed_locations_indonesia.sql` are APPLIED locally
+  (2026-10-25; `root_org_id` nullable, both partial unique indexes, 552 global rows verified): the VPS still
+  needs BOTH in that order — never patch 03 after 10. The two SBM seeds now carry the partial-index ON
+  CONFLICT predicate, live on patched DBs only.
 - `app/services/trip_ai.py` is 373 lines (cap 300) — pre-existing; split it before its next feature change.
