@@ -2,6 +2,14 @@
 
 All sql files are done and safe to rerun. Never edit them unless the owner asks. Run in this order.
 
+## Applying a file (scripts/apply_schema.py)
+Owner-run helper, port of HILDA's runner:
+`python scripts/apply_schema.py --file sql/<file>.sql [--dry-run] [--yes]`. It loads the API's database
+settings through `app.core.config`, prints only `user@host/database`, and executes the whole file in ONE
+transaction (`--dry-run` = execute + rollback). `--file` is required: AIDAA has no single schema file, only
+base files, numbered patches and seeds. Do a `--dry-run` first, then apply each file in the order listed
+below (patches by number; patch 10 before its seed; never patch 03 after patch 10).
+
 ## Files (sql/)
 1. aidaa_iam_permission.sql      app AIDAA, 8 IAM roles, audit.* permissions, role matrix
 2. aidaa_core_master.sql         master data (10 tables)
@@ -33,7 +41,11 @@ Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 m
   2026-01-01 to 2026-12-31, approved). Amounts NOT checked against the PMK. Loaded once. Real data comes from the SBM AI helper.
 - seed_trip_components.sql: six at_cost trip components (TRANSPORT, TIKET_PESAWAT_EKONOMI, TIKET_PESAWAT_BISNIS,
   TRANSPORT_DARAT_ANTAR_KOTA, TRANSPORT_TERMINAL, TRANSPORT_KEGIATAN_DALAM_KOTA), no amounts. Loaded for PDGRPT.
-A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit_setting in a seed.
+- seed_locations_indonesia.sql: GLOBAL-tier national master (root_org_id NULL, NOT per root): 38 provinces +
+  514 kab/kota (emsifa/api-wilayah-indonesia v2, Kepmendagri 2025 ed.). Requires patch 10. Append-style and
+  safe to rerun when a province or kab/kota appears; rows are read-only in the app.
+A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit_setting in a seed. The one
+exception is the national seed, which is rootless by design.
 
 ## Conventions
 - All primary keys are uuid. Permission codes are audit.<resource>.<action>, lowercase dotted.
@@ -45,13 +57,17 @@ A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit
 - Balance and variance amounts of realisation are computed in the report SQL (advance - realised,
   planned - realised), never stored.
 - ref_cost_rate.grade is jsonb (array of codes, NULL or empty means every grade). auditor.grade stays free text.
-- LEGACY, unused: library_pka.default_hours, ref_location.parent_location_id, ref_location.is_branch_office.
+- LEGACY, unused: library_pka.default_hours, ref_location.is_branch_office. (parent_location_id is back in
+  use: the national seed parents every kab/kota to its province row.)
 - There is no audit.funding.* permission, funding reuses audit.coststd.*.
 - audit_plan.owner_org_id and assignment.owner_org_id were added after the planning file (NOT NULL).
 
 ## Org scope
 Seven master tables carry root_org_id (locations, audit types, cost components, funding sources, PKA library,
-auditors, auditable units). Cost rates inherit the root of their component. Codes are unique per root. A caller
+auditors, auditable units). Cost rates inherit the root of their component. Codes are unique per root (since
+patch 10, ref_location splits the rule: org rows per root, the shared national master unique on its own
+codes; its rows carry root_org_id NULL, are read-only in the app and the seed owns them; readers accept both
+tiers, writes only the org tier). A caller
 sees only their root (get_root, resolved once per request). Another root's record answers 404.
 Plans, assignments, budget lines, trip legs, funding allocation and the PKA copy reject records of another root.
 The Internal Audit Unit is a child org of the root; it audits the whole tree, tags any user as auditor and sets any

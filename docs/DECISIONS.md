@@ -272,3 +272,13 @@ Format: date, decision, reason.
   normalized code/name/city by equality (never a substring), so "Kab. X"/"Kota X" spellings keep hitting
   their exact row, and org rows keep winning first (an org CITY- row means the national tier is never
   consulted for that place).
+
+## 2026-10-25 (continued): SQL runner through the app's database settings (scripts/apply_schema.py)
+
+- Port of HILDA's runner: `scripts/apply_schema.py` loads the repo `.env` through `app.core.config`, prints
+  only `user@host/database`, and applies ONE `--file` in one transaction; `--dry-run` executes and rolls
+  back; `--yes` skips the confirmation prompt. Difference versus HILDA: `--file` is REQUIRED here because
+  AIDAA has no single schema file — base files, numbered patches and seeds with a strict order
+  (docs/02_DATABASE.md), never patch 03 after patch 10.
+- Reason: a repeatable runner without duplicated connection settings or hand-reading `.env`; the API engine
+  is the single source of truth. The agent still writes nothing: the owner applies the files.

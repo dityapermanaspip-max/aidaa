@@ -117,6 +117,12 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-10-25 (same day): `scripts/apply_schema.py` ports HILDA's SQL runner to AIDAA —
+  `python scripts/apply_schema.py --file sql/<file>.sql [--dry-run] [--yes]`: settings loaded through
+  `app.core.config` (only `user@host/database` printed), one transaction, `--dry-run` rolls back, `--yes`
+  skips the prompt, `--file` required because AIDAA has numbered patches and seeds instead of one schema
+  file. The agent never runs it; the owner applies base files/patches/seeds with it (order in
+  docs/02_DATABASE.md).
 - 2026-10-25 (batch): the two remaining seeded approval steps are wired. `budget`/`finance_verify`:
   leader submits the issued/ongoing assignment's budget (`POST /assignment/{id}/budget-verification`,
   one pending at a time), `AIDAA.FINANCE` decides in the generic inbox, `GET` returns the latest
