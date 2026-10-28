@@ -77,5 +77,8 @@ def extract_text(data: bytes, filename: str = "") -> dict:
 @router.post("/documents/extract")
 async def extract_document(file: UploadFile = File(...), user=Depends(get_current_user)):
     """Accept a PDF, return its text. Reads no audit data, so authentication is enough."""
-    data = await file.read()
+    # Cap the read itself: a huge body is never fully buffered before the 413 (audit #2).
+    data = await file.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_BYTES // (1024 * 1024)} MB)")
     return extract_text(data, file.filename or "")
