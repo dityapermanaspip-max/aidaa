@@ -86,3 +86,10 @@ See docs/domains/trip.md.
 - The registered handler (`_on_expertise_task`) decides the WHOLE batch: every row sharing the ai_suggestion_id that
   is still pending becomes verified (approved) or rejected with the task note. `GET /expertise/{id}` feeds the
   approval-inbox link.
+
+## Library draft part-loop (frontend, 2026-10-28)
+- The library AI page feeds `createLibraryDraft` in PARTS for big PDFs: `darkhive-fev2/src/lib/aidaa/extractSlices.ts`
+  splits the extracted text on the HALAMAN markers at the first of 8 pages / 300 non-blank lines / 28000 chars.
+  The 30000-char `source_text` cap therefore describes ONE part, never the whole document; parts are separate
+  suggestions accepted one by one, and the do-not-repeat prompt list (library titles) keeps parts from
+  duplicating PKA. Nothing on the backend changed for this.
