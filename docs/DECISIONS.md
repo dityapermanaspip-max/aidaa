@@ -358,3 +358,10 @@ Format: date, decision, reason.
   and frees the thread instead of outliving the request.
 - The upload is spooled to `SPOOL_DIR` and deleted by the worker in a `finally`. The spool is scratch
   space (not storage), but the API and the worker must share the directory: same host, or a shared volume.
+
+## 2026-10-29: the agent reads and edits files directly
+
+- The old 00_RULES line ("ask the owner to paste a file", "code is typed in chat for copying") contradicted
+  the frontend entry point and the actual workflow: the agent reads the repository from disk and edits the
+  files. A FULL REPLACEMENT is still given only when the owner asks for it. The "go code" and "go sql" gates
+  are unchanged, and an unread file is never guessed.

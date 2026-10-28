@@ -7,11 +7,13 @@ All agent-facing docs and code comments are English. UI labels in the frontend s
 - "go code" gate: plan first, write code only after the owner writes "go code". A question or a pasted file is not "go code".
 - One small task at a time. Show the plan before the code.
 - Never read or create .env. New settings are announced in chat and added by the owner.
-- Ask for the target file before replacing or editing it. Several files share names across folders
+- Read the target file from disk before editing it. Several files share names across folders
   (funding.py, masters_costing.py, library_ai.py exist as router, schema and service). Confirm which one.
-- Code is typed in chat for copying. Any file touched in more than one place is given as a FULL REPLACEMENT.
-  Scattered chunks left old code behind more than once. A single small edit may be a chunk or one function.
-- New files come with a one-line PowerShell command. Database changes are one-liners for psql.
+- The agent edits files directly. A file touched in more than one place is given as a FULL REPLACEMENT
+  only when the owner asks for it. Scattered chunks left old code behind more than once. A single small
+  edit may be a chunk or one function.
+- The agent creates new files directly. Database changes ship as a re-runnable patch file; the owner
+  applies production SQL after "go sql".
 - Keep answers short. Do not ask for manual test steps: the owner tests in the frontend and does not want token tests in chat.
 - Never edit sql/ or reference/ unless asked. Ask before creating new tables. Do not modify IAM.
 - Do not invent amounts or rates. Money comes from approved master data or from a code parser, never from AI text.

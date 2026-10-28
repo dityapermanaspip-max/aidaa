@@ -13,6 +13,6 @@ Load a domain file only when the task touches it: docs/domains/rates-and-budget.
 Hard rules (details in 00_RULES):
 - Never read or create .env files. Never put secrets in chat or docs.
 - Do not write code until the owner writes "go code".
-- Ask the owner to paste a file before editing it. Never guess file contents.
+- The agent reads files from disk itself; the owner never has to paste a file. Never guess file contents.
 - Do NOT modify IAM tables. Never edit sql/ or reference/ unless asked.
 - Update docs/STATUS.md and docs/DECISIONS.md when work changes them.

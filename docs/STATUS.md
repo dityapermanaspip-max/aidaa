@@ -22,7 +22,8 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   `AI_DEADLINE` (default 120 s, caps the whole AI retry loop; raise it for a slow local Ollama),
   `SPOOL_DIR` (default `./spool`, API and
   worker must share it), `JOB_STALE_MINUTES` (30), `JOB_POLL_SECONDS` (1). The frontend `aFetch` follows
-  the job, so no screen changed. NOT exercised end to end yet.
+  the job, so no screen changed. Patch 11 is APPLIED on the local DB (2026-10-29; a real `doc.extract` job
+  ran enqueue → claim → done → spool cleanup, and another user reads 404); the VPS still needs it.
 - **Global location tier, patch 10 + national seed (2026-10-25)**: `ref_location` now holds TWO tiers in one
   table — `root_org_id IS NULL` = shared national master (BPS: 38 provinces + 514 kab/kota, read-only in the
   app) and `root_org_id = <root>` = the org's own rows, unchanged. DDL
@@ -301,6 +302,10 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   (2026-10-25; `root_org_id` nullable, both partial unique indexes, 552 global rows verified): the VPS still
   needs BOTH in that order — never patch 03 after 10. The two SBM seeds now carry the partial-index ON
   CONFLICT predicate, live on patched DBs only.
+- `sql/aidaa_patch_11_jobs.sql` is APPLIED locally (2026-10-29; 12 columns, `idx_job_queue` + `idx_job_user`
+  verified, and a real `doc.extract` job ran end to end: enqueue → claim → text-layer extraction → `done`
+  result → spool file deleted → another user reads 404). The VPS still needs it, **and** every API host
+  needs `python -m app.worker` running — until then every AI/OCR endpoint answers 500 on the missing table.
 - `app/services/trip_ai.py` is 373 lines (cap 300) — pre-existing; split it before its next feature change.
 - **Province-code bug from the 2026-10-25 sweep — FIXED the same day (owner picked "both fixes")**: the seed
   now selects the province NAME (`v.prov2`, was the parent code `v.prov`) and carries a rerunnable healing
