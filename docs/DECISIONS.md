@@ -1,4 +1,4 @@
-# Decisions (append only, newest last)
+﻿# Decisions (append only, newest last)
 
 Format: date, decision, reason.
 
@@ -316,3 +316,4 @@ Format: date, decision, reason.
   set; above without reason -> 422; above with reason -> allowed, and the overridden insert carries the typed
   unit_rate plus notes=reason. The end-to-end accept flow still waits for a real plan in the local DB
   (0 plans/assignments today); service-layer, not token, probes are the established pattern.
+- 2026-10-28: require_any_permission validates the org_id parameter the same way require_permission does (UUID check, 400 on garbage) instead of letting CAST(:org_id AS uuid) fail as a 500. Behaviour is otherwise unchanged.

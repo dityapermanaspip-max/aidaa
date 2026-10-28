@@ -1,4 +1,4 @@
-# Status
+﻿# Status
 
 Last updated: 2026-10. Update this file whenever work changes it.
 
@@ -300,3 +300,6 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   returns 4 candidates for a GLOBAL Kota destination (0 before), resolution matrix 11/11, seed counts
   552/514/0, org tier 39 untouched. VPS needs no extra step: its first seed run fixes the data by
   construction. The runner also executes psql-style (no bind arguments) so a literal `%` no longer breaks it.
+## 2026-10-28: security audit started (backlog: temp_security_backlog.md)
+- Cross-app JWT trust review: the token spine was already at IAM parity (pinned decode, jti revocation, active user, token_version). The only finding: require_any_permission now validates org_id with the same UUID check as require_permission, so a garbage uuid answers 400 instead of a CAST 500.
+- Deep audit of this repo follows; findings land in temp_security_backlog.md.

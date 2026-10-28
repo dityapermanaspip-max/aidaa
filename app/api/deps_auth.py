@@ -105,6 +105,11 @@ def require_any_permission(*permission_codes: str):
     """Layer 1 when several codes are acceptable (example: Head or General Affairs)."""
     def checker(request: Request, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
         org_id = request.path_params.get("org_id") or request.query_params.get("org_id")
+        if org_id:
+            try:
+                UUID(str(org_id))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid org_id")
         for code in permission_codes:
             if db.execute(_PERMISSION_SQL, {"user_id": current_user.user_id, "code": code,
                                             "org_id": org_id}).fetchone():
