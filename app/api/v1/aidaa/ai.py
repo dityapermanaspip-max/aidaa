@@ -83,7 +83,12 @@ def get_suggestion(suggestion_id: UUID, db: Session = Depends(get_db), user=Depe
 def decide(suggestion_id: UUID, payload: SuggestionDecision,
            db: Session = Depends(get_db), user=Depends(get_current_user)):
     s = svc.get_suggestion(db, suggestion_id)
-    code, roles = _AUTH[s["feature"]]
+    route = _AUTH.get(s["feature"])
+    if route is None:
+        # sbm/trip/library/expertise suggestions have their own decide endpoints (audit #5)
+        raise HTTPException(status_code=409,
+                            detail=f"A '{s['feature']}' suggestion is decided in its own flow, not here")
+    code, roles = route
     authorize_assignment(db, user, code, s["record_id"], roles)
     row = svc.decide(db, suggestion_id, payload, user.user_id)
     log_audit(db, user.user_id, f"ai.{payload.decision}", "ai_suggestion", suggestion_id,

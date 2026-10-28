@@ -162,8 +162,14 @@ def decide(db: Session, suggestion_id: UUID, payload: SuggestionDecision, user_i
     if payload.decision == "edited":
         if not payload.edited_output:
             raise HTTPException(status_code=400, detail="edited_output is required when decision is 'edited'")
+        model = _MODELS.get(s["feature"])
+        if model is None:
+            raise HTTPException(status_code=409,
+                                detail=f"A '{s['feature']}' suggestion is decided in its own flow, not here")
         try:
-            out = _MODELS[s["feature"]](**payload.edited_output).model_dump()
+            out = model(**payload.edited_output).model_dump()
+        except HTTPException:
+            raise
         except Exception:
             raise HTTPException(status_code=400, detail="edited_output does not match the expected format")
         log_edit(db, "ai_suggestion", suggestion_id, "output", json.dumps(s["output"]), json.dumps(out), user_id)
@@ -171,7 +177,11 @@ def decide(db: Session, suggestion_id: UUID, payload: SuggestionDecision, user_i
         raise HTTPException(status_code=400, detail="edited_output is only allowed when decision is 'edited'")
 
     if payload.decision != "rejected":
-        _APPLY[s["feature"]](db, s, out, user_id)
+        apply_fn = _APPLY.get(s["feature"])
+        if apply_fn is None:
+            raise HTTPException(status_code=409,
+                                detail=f"A '{s['feature']}' suggestion is decided in its own flow, not here")
+        apply_fn(db, s, out, user_id)
     db.execute(text("""
         UPDATE aidaa_ai.ai_suggestion
         SET status = :st, decided_by = CAST(:u AS uuid), decided_at = now(), output = CAST(:o AS jsonb)
