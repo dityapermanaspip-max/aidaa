@@ -105,6 +105,10 @@ def submit_response(db: Session, questionnaire_id: UUID, payload: QuestionnaireR
         raise HTTPException(status_code=409, detail="The questionnaire is not accepting answers")
     if q["link_expires_at"] is not None and q["link_expires_at"] <= _now():
         raise HTTPException(status_code=410, detail="The questionnaire link has expired")
+    # Stop at respondents_needed (audit #9): the leader raises respondents_needed to reopen the link.
+    # Two simultaneous submissions can still overshoot by one (no DDL possible here); that is accepted.
+    if q["responses_count"] >= q["respondents_needed"]:
+        raise HTTPException(status_code=409, detail="The questionnaire already has the needed number of responses")
     rows = _validated_answers(db, questionnaire_id, payload)
     rid = db.execute(text("""
         INSERT INTO aidaa_core.questionnaire_response

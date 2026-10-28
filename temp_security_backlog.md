@@ -43,7 +43,7 @@ Gate passed: `python -c "import app.main; print('ok')"`. Verified clean, no acti
 | 6 | AI/edited-output list fields unbounded: `SbmNaming.components`, `LibraryDraft.pkas`, `PkaSuggestion.pkas`, `TripNaming.visits`/`legs`, `PlanBudgetDraft.lines` — accept loops insert unbounded rows; add `max_length` caps | info | XS | none | done 2026-10-28 |
 | 7 | `model: Optional[str] = None` uncapped across AI request schemas (forwarded to the provider) — cap ~100 chars (can fold into #6) | info | XS | none | done 2026-10-28 |
 | 8 | `approval.create_task` duplicate check races: no unique index on pending `(record_type, record_id, step_id)`; `sql/` is frozen — owner-run patch or accept | info | S | none | done 2026-10-28 (advisory lock, no DDL) |
-| 9 | Public questionnaire accepts responses beyond `respondents_needed` while the link is valid (40h) — likely by design (walk-in paper replacement); propose accept | info | — | — | propose accept |
+| 9 | Public questionnaire accepts responses beyond `respondents_needed` while the link is valid (40h) — likely by design (walk-in paper replacement); propose accept | info | — | — | done 2026-10-28 (cap enforced; leader reopens by raising respondents_needed) |
 
 ### Notes (no action)
 - CORS allows `http://localhost:3000` with credentials — correct behind the BFF; the VPS origin is a

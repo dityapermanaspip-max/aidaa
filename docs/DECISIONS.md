@@ -329,3 +329,14 @@ Format: date, decision, reason.
   only serializes, it never blocks unrelated records for long (HTTP transactions are short).
 - If a DDL batch is ever opened for this repo, adding the partial unique index is still the belt-and-braces
   end state; the advisory lock alone is correct and needs no migration.
+
+## 2026-10-28 (continued): the questionnaire link stops at respondents_needed (audit #9)
+
+- Until now an issued link kept accepting responses for its whole 40h life, however many came in. Now
+  `submit_response` answers 409 once `responses_count >= respondents_needed`. The knob is deliberate: the
+  LEADER raises `respondents_needed` on the questionnaire and the link reopens - so "closed" is never
+  permanent and no walk-in respondent is turned away by accident when the unit quotes a low target.
+- Applies to the anonymous public link AND the in-app PIC path (a response is a response). Two truly
+  simultaneous submissions can overshoot the cap by one (the check is before the insert and no unique
+  index can express "at most N rows" here); that residual race is accepted - the cap is a sanity gate,
+  not an accounting control.

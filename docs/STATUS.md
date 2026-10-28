@@ -302,4 +302,4 @@ darkhive-fev2\docs\shared.md was filled in (it was empty).
   construction. The runner also executes psql-style (no bind arguments) so a literal `%` no longer breaks it.
 ## 2026-10-28: security audit started (backlog: temp_security_backlog.md)
 - Cross-app JWT trust review: the token spine was already at IAM parity (pinned decode, jti revocation, active user, token_version). The only finding: require_any_permission now validates org_id with the same UUID check as require_permission, so a garbage uuid answers 400 instead of a CAST 500.
-- Deep audit of this repo follows; findings land in temp_security_backlog.md.
+- Deep audit done the same day, findings #2-#9 all fixed (see temp_security_backlog.md): upload read cap (#2), prompt data-only fences on pka/report (#3), anonymous answer text cap 2000 (#4), decide-path 409 for foreign features (#5), list-field caps in the AI schemas (#6), model-name cap (#7), approval_task dup-check advisory lock (#8), public link stops at respondents_needed (#9). Gate green after every number; the tracker rows carry the details.
