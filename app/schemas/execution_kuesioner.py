@@ -89,7 +89,7 @@ class QuestionnaireAnswerIn(BaseModel):
     single_index: Optional[int] = Field(None, ge=1)
     multi_indexes: Optional[List[int]] = None
     scale_value: Optional[int] = Field(None, ge=1)
-    text_value: Optional[str] = None
+    text_value: Optional[str] = Field(None, max_length=2000)  # anonymous write, so the free text is capped
 
 
 class QuestionnaireResponseIn(BaseModel):
