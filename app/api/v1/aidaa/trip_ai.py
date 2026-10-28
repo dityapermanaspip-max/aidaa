@@ -8,7 +8,9 @@ from app.api.dependencies import (
     assignment_read, logistics_write, check_org_permission, check_org_any_permission, log_audit,
 )
 from app.schemas.ai import ModelsOut, SuggestionDecision, SuggestionOut
+from app.schemas.jobs import JobAccepted
 from app.schemas.trip_ai import TripDraftRequest
+from app.services import jobs as jobsvc
 from app.services import trip_ai as svc
 from app.services.ai_engine import list_ollama_models
 from app.services.roles import assert_assignment_visible
@@ -38,15 +40,15 @@ def list_drafts(assignment_id: UUID, status: Optional[str] = Query(None),
     return svc.list_drafts(db, user.user_id, assignment_id, status)
 
 
-@router.post("/{assignment_id}/ai/trip/drafts", response_model=SuggestionOut, status_code=201)
+@router.post("/{assignment_id}/ai/trip/drafts", response_model=JobAccepted, status_code=202)
 def create_draft(assignment_id: UUID, payload: TripDraftRequest,
                  db: Session = Depends(get_db), user=Depends(logistics_write)):
     _can_write(db, user, assignment_id)
-    row = svc.generate_draft(db, assignment_id, payload, user.user_id)
-    log_audit(db, user.user_id, "ai.trip_draft", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"], "assignment_id": str(assignment_id)})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.trip_draft",
+                          {"assignment_id": str(assignment_id),
+                           "request": payload.model_dump(mode="json")},
+                          audit={"action": "ai.trip_draft", "target_type": "ai_suggestion",
+                                 "metadata": {"assignment_id": str(assignment_id)}})
 
 
 @router.get("/{assignment_id}/ai/trip/drafts/{suggestion_id}", response_model=SuggestionOut)

@@ -42,7 +42,10 @@ WEB_API_THINKING = _raw_thinking if _raw_thinking in ("enabled", "disabled") els
 _raw_engine = os.getenv("AI_ENGINE", "WEB_API").upper()
 AI_ENGINE = "WEB_API" if _raw_engine in ("WEB_API", "CLOUD", "GEMINI") else "OLLAMA"
 
-AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "300"))  # seconds, local models can be slow
+AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "300"))  # seconds per attempt, local models can be slow
+# One overall budget for the whole retry loop. The BFF gives up at 180 s, so a call that lives longer
+# only burns a worker thread and a database connection for an answer nobody reads.
+AI_DEADLINE = int(os.getenv("AI_DEADLINE", "120"))
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 
 # PDF extraction (mirror of IAM/GrIMIS values)
@@ -51,3 +54,6 @@ OCR_DPI = int(os.getenv("OCR_DPI", "300"))
 OCR_LANGS = os.getenv("OCR_LANGS", "ind+eng")
 OCR_MIN_TEXT_PER_PAGE = int(os.getenv("OCR_MIN_TEXT_PER_PAGE", "20"))
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")  # only if tesseract is not on PATH
+
+# Scratch directory shared by the API (writes an upload) and the worker (reads and deletes it).
+SPOOL_DIR = os.getenv("SPOOL_DIR", "./spool")

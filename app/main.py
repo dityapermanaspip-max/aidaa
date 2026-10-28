@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.deps_root import resolve_root
-from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, trip_ai, budgeting, exec_pka, exec_finding, exec_report, exec_deviation, monitoring, correspondence, questionnaires, ai, realisation, doc_extract, public
+from app.api.v1.aidaa import master, masters_auditor, masters_library, masters_costing, masters_options, library_ai, sbm_ai, approval, plan, plan_flow, plan_budget_ai, funding, me, assignment, team, trip, trip_ai, budgeting, exec_pka, exec_finding, exec_report, exec_deviation, monitoring, correspondence, questionnaires, ai, realisation, doc_extract, public, jobs
 
 app = FastAPI(
     title="AIDAA - AI Driven Audit Assistant",
@@ -47,6 +47,8 @@ app.include_router(questionnaires.router, prefix=API_PREFIX, tags=["Kuesioner"],
 app.include_router(ai.router, prefix=API_PREFIX, tags=["AI"], dependencies=ROOT_SCOPED)
 app.include_router(plan_budget_ai.router, prefix=f"{API_PREFIX}/plan", tags=["Plan Budget AI"], dependencies=ROOT_SCOPED)
 app.include_router(doc_extract.router, prefix=API_PREFIX, tags=["Documents"])
+# Background jobs (AI/OCR): root comes from the job row, so no root dependency here.
+app.include_router(jobs.router, prefix=API_PREFIX, tags=["Jobs"])
 # Public kuesioner answering: mounted WITHOUT the root-scoped dependency (respondents are
 # anonymous; only questionnaire text, questions and bare counters leave the backend through it).
 app.include_router(public.router, prefix=API_PREFIX, tags=["Kuesioner Public"])

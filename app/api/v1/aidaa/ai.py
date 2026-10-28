@@ -9,8 +9,9 @@ from app.api.dependencies import (
     authorize_assignment, authorize_view, log_audit, ROLES_WORK, ROLES_LEAD,
 )
 from app.schemas.ai import AiRequest, ModelsOut, SuggestionDecision, SuggestionOut
+from app.schemas.jobs import JobAccepted
 from app.services import ai_suggestions as svc
-from app.services import team_ai as tsvc
+from app.services import jobs as jobsvc
 from app.services.ai_engine import list_ollama_models
 
 router = APIRouter()
@@ -28,40 +29,37 @@ def ollama_models(user=Depends(pka_read)):
     return {"data": list_ollama_models()}
 
 
-@router.post("/assignment/{assignment_id}/ai/pka-suggestions", response_model=SuggestionOut, status_code=201)
+@router.post("/assignment/{assignment_id}/ai/pka-suggestions", response_model=JobAccepted, status_code=202)
 def suggest_pka(assignment_id: UUID, payload: Optional[AiRequest] = None,
                 db: Session = Depends(get_db), user=Depends(pka_create)):
     authorize_assignment(db, user, "audit.pka.create", assignment_id, ROLES_WORK)
     p = payload or AiRequest()
-    row = svc.generate_pka(db, assignment_id, user.user_id, p.engine, p.model)
-    log_audit(db, user.user_id, "ai.suggest_pka", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.pka",
+                          {"assignment_id": str(assignment_id), "engine": p.engine, "model": p.model},
+                          audit={"action": "ai.suggest_pka", "target_type": "ai_suggestion",
+                                 "metadata": {}})
 
 
-@router.post("/assignment/{assignment_id}/ai/report-suggestions", response_model=SuggestionOut, status_code=201)
+@router.post("/assignment/{assignment_id}/ai/report-suggestions", response_model=JobAccepted, status_code=202)
 def suggest_report(assignment_id: UUID, payload: Optional[AiRequest] = None,
                    db: Session = Depends(get_db), user=Depends(report_create)):
     authorize_assignment(db, user, "audit.report.create", assignment_id, ROLES_LEAD)
     p = payload or AiRequest()
-    row = svc.generate_report(db, assignment_id, user.user_id, p.engine, p.model)
-    log_audit(db, user.user_id, "ai.suggest_report", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.report",
+                          {"assignment_id": str(assignment_id), "engine": p.engine, "model": p.model},
+                          audit={"action": "ai.suggest_report", "target_type": "ai_suggestion",
+                                 "metadata": {}})
 
 
-@router.post("/assignment/{assignment_id}/ai/team-suggestions", response_model=SuggestionOut, status_code=201)
+@router.post("/assignment/{assignment_id}/ai/team-suggestions", response_model=JobAccepted, status_code=202)
 def suggest_team(assignment_id: UUID, payload: Optional[AiRequest] = None,
                  db: Session = Depends(get_db), user=Depends(team_manage)):
     authorize_assignment(db, user, "audit.team.manage", assignment_id, ("leader",))
     p = payload or AiRequest()
-    row = tsvc.generate_suggestions(db, assignment_id, user.user_id, p.engine, p.model)
-    log_audit(db, user.user_id, "ai.suggest_team", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.team",
+                          {"assignment_id": str(assignment_id), "engine": p.engine, "model": p.model},
+                          audit={"action": "ai.suggest_team", "target_type": "ai_suggestion",
+                                 "metadata": {}})
 
 
 @router.get("/assignment/{assignment_id}/ai/suggestions", response_model=List[SuggestionOut])

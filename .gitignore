@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AIDAA background worker: scratch uploads for PDF/OCR jobs (SPOOL_DIR)
+spool/

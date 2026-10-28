@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import library_manage, library_read, log_audit
 from app.schemas.ai import ModelsOut, SuggestionDecision, SuggestionOut
+from app.schemas.jobs import JobAccepted
 from app.schemas.library_ai import LibraryDraftRequest, LibraryImproveRequest
+from app.services import jobs as jobsvc
 from app.services import library_ai as svc
 from app.services import library_ai_improvement as isvc
 from app.services.ai_engine import list_ollama_models
@@ -26,13 +28,12 @@ def list_drafts(type_id: Optional[UUID] = None, status: Optional[str] = Query(No
     return svc.list_drafts(db, user.user_id, type_id, status)
 
 
-@router.post("/library/ai/drafts", response_model=SuggestionOut, status_code=201)
+@router.post("/library/ai/drafts", response_model=JobAccepted, status_code=202)
 def create_draft(payload: LibraryDraftRequest, db: Session = Depends(get_db), user=Depends(library_manage)):
-    row = svc.generate_draft(db, payload, user.user_id)
-    log_audit(db, user.user_id, "ai.library_draft", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"], "type_id": str(payload.type_id)})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.library_draft",
+                          {"request": payload.model_dump(mode="json")},
+                          audit={"action": "ai.library_draft", "target_type": "ai_suggestion",
+                                 "metadata": {"type_id": str(payload.type_id)}})
 
 
 @router.get("/library/ai/drafts/{suggestion_id}", response_model=SuggestionOut)
@@ -51,14 +52,14 @@ def decide_draft(suggestion_id: UUID, payload: SuggestionDecision,
 
 # --- library_improvement: rewrite one library PKA (accept deactivates the old head) ---
 
-@router.post("/library/pka/{library_pka_id}/ai-improvement", response_model=SuggestionOut, status_code=201)
+@router.post("/library/pka/{library_pka_id}/ai-improvement", response_model=JobAccepted, status_code=202)
 def create_improvement(library_pka_id: UUID, payload: LibraryImproveRequest,
                        db: Session = Depends(get_db), user=Depends(library_manage)):
-    row = isvc.generate_improvement(db, user.user_id, library_pka_id, payload)
-    log_audit(db, user.user_id, "ai.library_improvement", "ai_suggestion", row["suggestion_id"],
-              {"library_pka_id": str(library_pka_id), "engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.library_improvement",
+                          {"library_pka_id": str(library_pka_id),
+                           "request": payload.model_dump(mode="json")},
+                          audit={"action": "ai.library_improvement", "target_type": "ai_suggestion",
+                                 "metadata": {"library_pka_id": str(library_pka_id)}})
 
 
 @router.get("/library/pka/{library_pka_id}/ai-improvements", response_model=List[SuggestionOut])

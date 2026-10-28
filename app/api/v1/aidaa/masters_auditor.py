@@ -15,6 +15,8 @@ from app.schemas.aidaa import (
 )
 from app.schemas.ai import SuggestionDecision, SuggestionOut
 from app.schemas.expertise_ai import ExpertiseExtractRequest
+from app.schemas.jobs import JobAccepted
+from app.services import jobs as jobsvc
 from app.services import masters_auditor as svc
 from app.services import expertise_ai as esvc
 
@@ -105,14 +107,14 @@ def get_expertise(expertise_id: UUID, db: Session = Depends(get_db), user=Depend
 
 # --- Expertise AI extraction (feature 'expertise_extract', seeded step record_type 'expertise') ---
 
-@router.post("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=SuggestionOut, status_code=201)
+@router.post("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=JobAccepted, status_code=202)
 def extract_expertise(auditor_id: UUID, payload: ExpertiseExtractRequest,
                       db: Session = Depends(get_db), user=Depends(expertise_create)):
-    row = esvc.generate_extract(db, auditor_id, payload, user.user_id)
-    log_audit(db, user.user_id, "expertise.ai_extract", "ai_suggestion", row["suggestion_id"],
-              {"auditor_id": str(auditor_id), "engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.expertise_extract",
+                          {"auditor_id": str(auditor_id),
+                           "request": payload.model_dump(mode="json")},
+                          audit={"action": "expertise.ai_extract", "target_type": "ai_suggestion",
+                                 "metadata": {"auditor_id": str(auditor_id)}})
 
 
 @router.get("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=List[SuggestionOut])

@@ -10,27 +10,45 @@ from app.core import config
 _ENGINES = {"OLLAMA": "ollama", "WEB_API": "cloud", "CLOUD": "cloud", "GEMINI": "cloud"}
 
 
-def _call(url: str, body: Optional[dict], headers: dict) -> dict:
+def _call(url: str, body: Optional[dict], headers: dict, deadline: Optional[float] = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method="POST" if body is not None else "GET",
                                  headers={"Content-Type": "application/json", **headers})
+    limit = float(config.AI_DEADLINE if deadline is None else deadline)
+    started = time.monotonic()
+
+    def remaining() -> float:
+        return limit - (time.monotonic() - started)
+
     for attempt in range(3):
+        left = remaining()
+        if left <= 0:
+            break
         try:
-            with urllib.request.urlopen(req, timeout=config.AI_TIMEOUT) as res:
+            with urllib.request.urlopen(req, timeout=min(config.AI_TIMEOUT, left)) as res:
                 return json.loads(res.read().decode())
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 503) and attempt < 2:  # busy or rate limited: wait and try again
-                time.sleep(2 * (attempt + 1))
+                wait = 2 * (attempt + 1)
+                if remaining() <= wait:  # the sleep alone would spend the budget
+                    break
+                time.sleep(wait)
                 continue
             try:
                 detail = exc.read().decode(errors="replace")[:300]
             except Exception:
                 detail = ""
             raise HTTPException(status_code=502, detail=f"AI engine returned HTTP {exc.code}: {detail}")
-        except (urllib.error.URLError, TimeoutError):
+        except TimeoutError:
+            break
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                break
             raise HTTPException(status_code=503, detail="AI engine is not reachable")
         except ValueError:
             raise HTTPException(status_code=502, detail="AI engine returned an unreadable answer")
+    # No answer inside AI_DEADLINE: the caller waits no longer and the worker thread is freed.
+    raise HTTPException(status_code=504, detail="AI engine exceeded the time limit, try again")
 
 def list_ollama_models() -> list:
     raw = _call(f"{config.OLLAMA_URL.rstrip('/')}/api/tags", None, {})

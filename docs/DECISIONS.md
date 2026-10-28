@@ -340,3 +340,21 @@ Format: date, decision, reason.
   simultaneous submissions can overshoot the cap by one (the check is before the insert and no unique
   index can express "at most N rows" here); that residual race is accepted - the cap is a sanity gate,
   not an accounting control.
+
+## 2026-10-29: AI and OCR leave the request thread (job table, not Redis)
+
+- The audit found one AI call could hold a request thread and a pooled connection for 906 s (3 x 300 s
+  attempts plus the sleeps) while the BFF gave up at 180 s. AI generation and PDF/OCR now insert an
+  `aidaa_core.job` row and answer 202; `python -m app.worker` runs them.
+- PostgreSQL is the queue (`FOR UPDATE SKIP LOCKED`, `locked_at` reclaim after `JOB_STALE_MINUTES`)
+  because the volume is a few dozen jobs a day and the database already owns the suggestion rows. A
+  broker would add an operational component for no gain at this size.
+- The API change is absorbed in one place: the frontend `aFetch` detects `{job_id}` and polls
+  `GET /jobs/{id}` with backoff, returning `job.result`, so no screen changed.
+- The worker replays the audit entry stored in the job payload (action, target, metadata) with the same
+  engine/model the service wrote, so `iam.audit_log` is identical to the synchronous flow. A failed job
+  keeps its error on the row; there is no automatic retry - the user presses again.
+- `AI_DEADLINE` (120 s) bounds the whole retry loop, not one attempt. A slow provider now answers 504
+  and frees the thread instead of outliving the request.
+- The upload is spooled to `SPOOL_DIR` and deleted by the worker in a `finally`. The spool is scratch
+  space (not storage), but the API and the worker must share the directory: same host, or a shared volume.

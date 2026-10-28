@@ -12,6 +12,17 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Background job queue, patch 11 (2026-10-29, branch `upscale_readiness`)**: AI generation and PDF/OCR
+  left the request thread. `sql/aidaa_patch_11_jobs.sql` adds `aidaa_core.job` and is **NOT applied yet**
+  (needs "go sql"; every AI/OCR endpoint fails until it is). The nine AI POSTs (pka/report/team
+  suggestions, trip draft, library draft + improvement, expertise extract, plan budget, SBM draft) and
+  `POST /documents/extract` now answer **202** `{job_id,status}`; `GET /jobs/{job_id}` (owner-scoped)
+  carries the result, and the worker replays the same `iam.audit_log` row the router wrote. The worker is
+  `python -m app.worker` (one per host; several processes are safe). New env key names only:
+  `AI_DEADLINE` (default 120 s, caps the whole AI retry loop; raise it for a slow local Ollama),
+  `SPOOL_DIR` (default `./spool`, API and
+  worker must share it), `JOB_STALE_MINUTES` (30), `JOB_POLL_SECONDS` (1). The frontend `aFetch` follows
+  the job, so no screen changed. NOT exercised end to end yet.
 - **Global location tier, patch 10 + national seed (2026-10-25)**: `ref_location` now holds TWO tiers in one
   table — `root_org_id IS NULL` = shared national master (BPS: 38 provinces + 514 kab/kota, read-only in the
   app) and `root_org_id = <root>` = the org's own rows, unchanged. DDL

@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import budget_read, budget_draft, check_org_permission, log_audit
 from app.schemas.ai import SuggestionDecision, SuggestionOut
+from app.schemas.jobs import JobAccepted
 from app.schemas.plan_budget_ai import PlanBudgetRequest
+from app.services import jobs as jobsvc
 from app.services import plan_budget_ai as svc
 
 router = APIRouter()
@@ -19,16 +21,15 @@ def list_drafts(plan_id: UUID, status: Optional[str] = Query(None),
     return svc.list_drafts(db, user.user_id, plan_id, status)
 
 
-@router.post("/{plan_id}/ai/budget-drafts", response_model=SuggestionOut, status_code=201)
+@router.post("/{plan_id}/ai/budget-drafts", response_model=JobAccepted, status_code=202)
 def create_draft(plan_id: UUID, payload: Optional[PlanBudgetRequest] = None,
                  db: Session = Depends(get_db), user=Depends(budget_draft)):
     check_org_permission(db, user, "audit.budget.draft", "plan", plan_id)
     p = payload or PlanBudgetRequest()
-    row = svc.generate_draft(db, plan_id, p, user.user_id)
-    log_audit(db, user.user_id, "ai.plan_budget_draft", "ai_suggestion", row["suggestion_id"],
-              {"plan_id": str(plan_id), "engine": row["engine"], "model": row["model_name"]})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.plan_budget",
+                          {"plan_id": str(plan_id), "request": p.model_dump(mode="json")},
+                          audit={"action": "ai.plan_budget_draft", "target_type": "ai_suggestion",
+                                 "metadata": {"plan_id": str(plan_id)}})
 
 
 @router.get("/{plan_id}/ai/budget-drafts/{suggestion_id}", response_model=SuggestionOut)

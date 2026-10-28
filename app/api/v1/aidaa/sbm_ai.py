@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import costrate_read, costrate_create, log_audit
 from app.schemas.ai import SuggestionDecision, SuggestionOut, ModelsOut
+from app.schemas.jobs import JobAccepted
 from app.schemas.sbm_ai import SbmDraftRequest
+from app.services import jobs as jobsvc
 from app.services import sbm_ai as svc
 from app.services.ai_engine import list_ollama_models
 
@@ -19,13 +21,12 @@ def list_drafts(status: Optional[str] = Query(None),
     return svc.list_drafts(db, user.user_id, status)
 
 
-@router.post("/sbm/ai/drafts", response_model=SuggestionOut, status_code=201)
+@router.post("/sbm/ai/drafts", response_model=JobAccepted, status_code=202)
 def create_draft(payload: SbmDraftRequest, db: Session = Depends(get_db), user=Depends(costrate_create)):
-    row = svc.generate_draft(db, payload, user.user_id)
-    log_audit(db, user.user_id, "ai.sbm_draft", "ai_suggestion", row["suggestion_id"],
-              {"engine": row["engine"], "model": row["model_name"], "annex": payload.annex_label})
-    db.commit()
-    return row
+    return jobsvc.enqueue(db, user.user_id, "ai.sbm",
+                          {"request": payload.model_dump(mode="json")},
+                          audit={"action": "ai.sbm_draft", "target_type": "ai_suggestion",
+                                 "metadata": {"annex": payload.annex_label}})
 
 @router.get("/sbm/ai/models", response_model=ModelsOut)
 def ollama_models(user=Depends(costrate_read)):
