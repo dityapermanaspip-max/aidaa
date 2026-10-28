@@ -8,11 +8,11 @@ class PkaItem(BaseModel):
     title: str = Field(..., min_length=1, max_length=250)
     objective: Optional[str] = None
     planned_hours: float = Field(0, ge=0)
-    procedures: List[str] = []
+    procedures: List[str] = Field([], max_length=100)  # audit #6: bounded accept loop
 
 
 class PkaSuggestion(BaseModel):
-    pkas: List[PkaItem] = Field(..., min_length=1)
+    pkas: List[PkaItem] = Field(..., min_length=1, max_length=50)  # audit #6
 
 
 class ReportSuggestion(BaseModel):

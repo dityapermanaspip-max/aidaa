@@ -27,13 +27,13 @@ class DraftProcedure(BaseModel):
 class DraftPka(BaseModel):
     title: str = Field(..., min_length=1, max_length=250)
     objective: Optional[str] = None
-    procedures: List[DraftProcedure] = Field(..., min_length=1)
+    procedures: List[DraftProcedure] = Field(..., min_length=1, max_length=100)  # audit #6
 
     _plain = field_validator("procedures", mode="before")(_plain_strings)
 
 
 class LibraryDraft(BaseModel):
-    pkas: List[DraftPka] = Field(..., min_length=1)
+    pkas: List[DraftPka] = Field(..., min_length=1, max_length=50)  # audit #6
 
 
 # --- library_improvement: rewrite ONE library PKA; accept deactivates the old row ---
@@ -47,6 +47,6 @@ class LibraryImproveRequest(BaseModel):
 class LibraryImprovement(BaseModel):
     title: str = Field(..., min_length=1, max_length=250)
     objective: Optional[str] = None
-    procedures: List[DraftProcedure] = Field(..., min_length=1)
+    procedures: List[DraftProcedure] = Field(..., min_length=1, max_length=100)  # audit #6
 
     _plain = field_validator("procedures", mode="before")(_plain_strings)

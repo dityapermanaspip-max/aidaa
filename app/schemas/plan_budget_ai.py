@@ -17,7 +17,7 @@ class AiSite(BaseModel):
 
 
 class PlanBudgetNaming(BaseModel):
-    sites: List[AiSite] = Field(..., min_length=1)
+    sites: List[AiSite] = Field(..., min_length=1, max_length=100)  # audit #6
 
 
 # What the service builds from the AI answer and the approved rates, and what the human edits.
@@ -43,6 +43,6 @@ class PlanBudgetDraft(BaseModel):
     plan_id: UUID
     effort_hours: float = Field(0, ge=0)  # sum of library procedure hours for the plan's audit type
     effort_days: float = Field(0, ge=0)  # effort_hours / 8
-    sites: List[AiSite] = []
-    lines: List[PlanBudgetLine] = Field(..., min_length=1)
+    sites: List[AiSite] = Field([], max_length=100)
+    lines: List[PlanBudgetLine] = Field(..., min_length=1, max_length=500)  # audit #6: bounded accept loop
     warnings: List[str] = []

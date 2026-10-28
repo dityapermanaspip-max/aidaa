@@ -16,12 +16,12 @@ class AiVisit(BaseModel):
     start_date: date
     end_date: date
     purpose: str = Field("", max_length=500)
-    auditor_ids: List[UUID] = []
+    auditor_ids: List[UUID] = Field([], max_length=50)  # audit #6
     reason: str = Field("", max_length=500)
 
 
 class TripNaming(BaseModel):
-    visits: List[AiVisit] = Field(..., min_length=1)
+    visits: List[AiVisit] = Field(..., min_length=1, max_length=30)  # audit #6
 
 
 # What the service builds from the AI answer, and what the human edits.
@@ -37,7 +37,7 @@ class DraftVisit(BaseModel):
     visit_start: date
     visit_end: date
     purpose: Optional[str] = Field(None, max_length=500)
-    attendee_ids: List[UUID] = []
+    attendee_ids: List[UUID] = Field([], max_length=50)  # audit #6
     reason: Optional[str] = Field(None, max_length=500)
 
 
@@ -60,7 +60,7 @@ class DraftLeg(BaseModel):
 
 class TripDraft(BaseModel):
     assignment_id: UUID
-    visits: List[DraftVisit] = []
-    legs: List[DraftLeg] = []
-    airports: List[AirportOption] = []  # cities that have a ticket rate, for the searchable dropdown
+    visits: List[DraftVisit] = Field([], max_length=30)  # audit #6: bounded accept loop
+    legs: List[DraftLeg] = Field([], max_length=500)
+    airports: List[AirportOption] = Field([], max_length=500)  # cities that have a ticket rate, for the searchable dropdown
     warnings: List[str] = []

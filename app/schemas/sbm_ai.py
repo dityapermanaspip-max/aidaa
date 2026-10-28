@@ -73,9 +73,9 @@ class SbmBlock(BaseModel):
 class SbmNaming(BaseModel):
     # component: each amount column is one cost component. grade: ONE component, one column per official grade.
     column_kind: Literal["component", "grade"] = "component"
-    components: List[SbmComponent] = Field(..., min_length=1)
-    blocks: List[SbmBlock] = Field(..., min_length=1)
-    grade_columns: List[SbmGradeColumn] = []  # only in grade mode, one entry per grade column in column order
+    components: List[SbmComponent] = Field(..., min_length=1, max_length=200)  # audit #6
+    blocks: List[SbmBlock] = Field(..., min_length=1, max_length=200)
+    grade_columns: List[SbmGradeColumn] = Field([], max_length=200)  # only in grade mode, one entry per grade column in column order
 
 
 # A place used by the rates. location_id is set when an existing location matched, empty means it will be created.
@@ -105,9 +105,9 @@ class SbmDraft(BaseModel):
     effective_to: Optional[date] = None
     shape: str = "province"  # province, road, route or single
     column_kind: str = "component"  # component or grade, see SbmNaming
-    components: List[SbmComponent] = Field(..., min_length=1)
-    blocks: List[SbmBlock] = []
-    grade_columns: List[SbmGradeColumn] = []
-    places: List[SbmPlace] = []
-    rates: List[SbmRate] = Field(..., min_length=1)
+    components: List[SbmComponent] = Field(..., min_length=1, max_length=200)  # audit #6: bounded accept loop
+    blocks: List[SbmBlock] = Field([], max_length=200)
+    grade_columns: List[SbmGradeColumn] = Field([], max_length=200)
+    places: List[SbmPlace] = Field([], max_length=1000)
+    rates: List[SbmRate] = Field(..., min_length=1, max_length=5000)
     unknown_provinces: List[str] = []  # rows or places the parser skipped, with the reason
