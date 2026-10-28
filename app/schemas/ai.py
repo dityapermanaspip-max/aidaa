@@ -42,7 +42,7 @@ class SuggestionOut(BaseModel):
     
 class AiRequest(BaseModel):
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7: forwarded to the provider, so it is capped
 
 
 class ModelsOut(BaseModel):

@@ -10,7 +10,7 @@ class ExpertiseExtractRequest(BaseModel):
     source_text: str = Field(..., min_length=20, max_length=30000)
     instruction: Optional[str] = Field(None, max_length=1000)
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7
 
 
 def _clean_date(v) -> Optional[str]:

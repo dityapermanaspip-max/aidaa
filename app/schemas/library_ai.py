@@ -8,7 +8,7 @@ class LibraryDraftRequest(BaseModel):
     source_text: str = Field(..., min_length=50, max_length=30000)  # pasted report text, upload and looping come later
     instruction: Optional[str] = Field(None, max_length=1000)
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7
 
 
 def _plain_strings(v):
@@ -41,7 +41,7 @@ class LibraryDraft(BaseModel):
 class LibraryImproveRequest(BaseModel):
     instruction: Optional[str] = Field(None, max_length=1000)
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7
 
 
 class LibraryImprovement(BaseModel):

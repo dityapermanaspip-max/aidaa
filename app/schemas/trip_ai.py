@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class TripDraftRequest(BaseModel):
     instruction: Optional[str] = Field(None, max_length=1000)
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7
 
 
 # What the AI answers: where, when and who. It never writes money amounts or routes.

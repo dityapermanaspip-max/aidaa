@@ -41,7 +41,7 @@ Gate passed: `python -c "import app.main; print('ok')"`. Verified clean, no acti
 | 4 | `QuestionnaireAnswerIn.text_value` is uncapped free text on the ANONYMOUS public write — cap ~2000 chars | low | XS | none | done 2026-10-28 |
 | 5 | Generic decide path 500s on features it doesn't route: `_AUTH[s["feature"]]` (ai.py) and `_MODELS`/`_APPLY[s["feature"]]` (ai_suggestions.decide) raise KeyError for e.g. an sbm/trip suggestion id; `.get` + clean 400/409 | info | XS | none | done 2026-10-28 |
 | 6 | AI/edited-output list fields unbounded: `SbmNaming.components`, `LibraryDraft.pkas`, `PkaSuggestion.pkas`, `TripNaming.visits`/`legs`, `PlanBudgetDraft.lines` — accept loops insert unbounded rows; add `max_length` caps | info | XS | none | done 2026-10-28 |
-| 7 | `model: Optional[str] = None` uncapped across AI request schemas (forwarded to the provider) — cap ~100 chars (can fold into #6) | info | XS | none | todo |
+| 7 | `model: Optional[str] = None` uncapped across AI request schemas (forwarded to the provider) — cap ~100 chars (can fold into #6) | info | XS | none | done 2026-10-28 |
 | 8 | `approval.create_task` duplicate check races: no unique index on pending `(record_type, record_id, step_id)`; `sql/` is frozen — owner-run patch or accept | info | S | none | todo |
 | 9 | Public questionnaire accepts responses beyond `respondents_needed` while the link is valid (40h) — likely by design (walk-in paper replacement); propose accept | info | — | — | propose accept |
 

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class PlanBudgetRequest(BaseModel):
     instruction: Optional[str] = Field(None, max_length=1000)
     engine: Optional[Literal["OLLAMA", "WEB_API"]] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(None, max_length=100)  # audit #7
 
 
 # What the AI answers: only on-site days per audited unit and why. It never writes amounts or rates.
