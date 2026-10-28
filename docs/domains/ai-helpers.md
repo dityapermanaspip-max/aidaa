@@ -93,3 +93,13 @@ See docs/domains/trip.md.
   The 30000-char `source_text` cap therefore describes ONE part, never the whole document; parts are separate
   suggestions accepted one by one, and the do-not-repeat prompt list (library titles) keeps parts from
   duplicating PKA. Nothing on the backend changed for this.
+
+## Audit type description is the PRIMARY prompt directive (2026-10-28)
+- Owner decision: instead of hardcoded per-kind prompt variants, the audit type's `description` drives the
+  framing. Both draft prompts (`library_ai._draft_prompt`, `ai_suggestions._pka_prompt`) wrap it in a
+  `=== AUDIT TYPE DEFINITION ===` block labelled PRIMARY (what the PKA must achieve, how procedures read,
+  what the source text represents), the source text stays data-only, and the user's extra instruction is
+  explicitly SECONDARY (the definition wins on conflict). A new audit kind (kebijakan, kepatuhan, kinerja,
+  ...) is just a well-written description - zero deploys, zero DDL (`description` is a text column).
+- Hygiene: `AuditTypeCreate/Update.description` caps at 4000 chars (it is injected into every prompt);
+  the FE Jenis Audit form carries a briefing-style hint.

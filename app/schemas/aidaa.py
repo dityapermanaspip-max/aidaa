@@ -57,12 +57,14 @@ class LocationOut(BaseModel):
 class AuditTypeCreate(BaseModel):
     type_code: str = Field(..., min_length=1, max_length=30)
     type_name: str = Field(..., min_length=1, max_length=150)
-    description: Optional[str] = None
+    # The description is the AI's PRIMARY directive when drafting PKA for this type (write it like a
+    # briefing); capped since it is injected into every prompt (audit #6 family).
+    description: Optional[str] = Field(None, max_length=4000)
 
 
 class AuditTypeUpdate(BaseModel):
     type_name: Optional[str] = Field(None, min_length=1, max_length=150)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=4000)
     is_active: Optional[bool] = None
 
 
