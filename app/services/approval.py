@@ -65,6 +65,13 @@ def create_task(db: Session, record_type: str, record_id: UUID, step_no: int, re
         report_id = record_id
     if settlement_id is None and record_type == "settlement":
         settlement_id = record_id
+    # Serialize dup-check + insert per (record_type, record_id, step) (audit #8): two concurrent
+    # submissions can no longer both pass the check. A transaction-level advisory lock - the lock
+    # releases at commit, and no DDL is needed (sql/ is frozen).
+    db.execute(text("""
+        SELECT pg_advisory_xact_lock(
+            hashtext('aidaa.approval_task'), hashtext(:rt || ':' || :rid || ':' || :sid))
+    """), {"rt": record_type, "rid": str(record_id), "sid": str(step["step_id"])})
     dup = db.execute(text("""
         SELECT 1 FROM aidaa_core.approval_task
         WHERE record_type = :rt AND record_id = CAST(:rid AS uuid)

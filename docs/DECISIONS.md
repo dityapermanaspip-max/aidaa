@@ -317,3 +317,15 @@ Format: date, decision, reason.
   unit_rate plus notes=reason. The end-to-end accept flow still waits for a real plan in the local DB
   (0 plans/assignments today); service-layer, not token, probes are the established pattern.
 - 2026-10-28: require_any_permission validates the org_id parameter the same way require_permission does (UUID check, 400 on garbage) instead of letting CAST(:org_id AS uuid) fail as a 500. Behaviour is otherwise unchanged.
+
+## 2026-10-28 (continued): approval_task duplicate check made race-safe with an advisory lock (audit #8)
+
+- Two concurrent submissions of the same record/step could both pass the check-then-insert dup check and
+  create two pending tasks for the same step. The proper fix is a unique partial index on
+  `approval_task(record_type, record_id, step_id) WHERE status = 'pending'`, but `sql/` is frozen - so the
+  fix is in code: `create_task` takes a transaction-level advisory lock
+  (`pg_advisory_xact_lock(hashtext('aidaa.approval_task'), hashtext(rt:rid:sid))`) BEFORE the dup check.
+  The second caller queues, then sees the dup and answers 409. The lock releases at commit; the hash key
+  only serializes, it never blocks unrelated records for long (HTTP transactions are short).
+- If a DDL batch is ever opened for this repo, adding the partial unique index is still the belt-and-braces
+  end state; the advisory lock alone is correct and needs no migration.
