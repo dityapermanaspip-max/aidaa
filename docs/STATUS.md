@@ -12,6 +12,17 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Connection budget and CORS allow-list (2026-10-29, branch `upscale_readiness`)**: the engine
+  pool is now `DB_POOL_SIZE=5` + `DB_MAX_OVERFLOW=10` (was 10 + 20), with `DB_POOL_TIMEOUT=10` so a
+  saturated pool fails before the BFF's 180 s timeout and `DB_POOL_RECYCLE=1800` so proxies cannot
+  hand out sockets they already closed. Five processes (IAM, AIDAA API, AIDAA worker, GRiMIS, HILDA)
+  now ceiling at 75 of Postgres' 100 connections instead of 120. Same change in IAM, GRiMIS and
+  HILDA, and the platform arithmetic + pgbouncer recipe live in
+  `darkhive-bev2/docs/ops/connection-budget.md` (owner applies pgbouncer; no app change needed for
+  the current single-worker setup). `allow_origins` comes from `CORS_ORIGINS` (comma-separated,
+  default `http://localhost:3000`); `*` is not supported because credentials are enabled. Verified:
+  defaults and an env override reflected in `engine.pool` and in the preflight response for this
+  backend; AIDAA's 21 tests still pass.
 - **Public questionnaire cap and an anonymous commit (2026-10-29, branch `upscale_readiness`)**:
   `POST /public/questionnaires/{token}` now commits. It used to return 201 and then lose the row when
   the request session closed, because the public router is the only write path without an audit

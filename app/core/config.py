@@ -14,6 +14,16 @@ DB_PASSWORD = os.getenv("DH_DB_PASSWORD", os.getenv("DB_PASSWORD", ""))
 if not DB_PASSWORD:
     raise ValueError("DH_DB_PASSWORD must be set in .env")
 
+# Connection budget (docs/ops/connection-budget.md). Every API worker and every `app.worker`
+# process owns its own pool, so the limit that matters is processes x (size + overflow), not one
+# pool. Defaults keep five processes (IAM, AIDAA API, AIDAA worker, GRiMIS, HILDA) at 75 of
+# Postgres' 100 connections. pool_timeout is short so a saturated pool fails before the BFF's
+# 180 s timeout; pool_recycle drops connections a proxy would have already closed.
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
+
 # JWT Security Settings
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not JWT_SECRET_KEY or len(JWT_SECRET_KEY) < 32:
@@ -24,6 +34,16 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
 # App identity
 APP_CODE = "AIDAA"
+
+# Browser origins allowed to call this API directly (comma-separated). Normal traffic comes
+# through the Next.js BFF server-side, so localhost is enough in development; production lists
+# the real site origins. "*" is not supported: credentials are enabled and browsers reject the
+# wildcard with credentials.
+CORS_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
