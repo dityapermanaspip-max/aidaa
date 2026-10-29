@@ -95,6 +95,16 @@ def _validated_answers(db: Session, questionnaire_id: UUID, payload: Questionnai
     return rows
 
 
+_INSERT_CAPPED = """
+    INSERT INTO aidaa_core.questionnaire_response
+        (questionnaire_id, name, position, age, last_degree, gender, submitted_via, submitted_by)
+    SELECT CAST(:q AS uuid), :name, :pos, :age, :deg, :g, :via, CAST(:u AS uuid)
+    WHERE (SELECT count(*) FROM aidaa_core.questionnaire_response
+            WHERE questionnaire_id = CAST(:q AS uuid)) < :needed
+    RETURNING response_id
+"""
+
+
 def submit_response(db: Session, questionnaire_id: UUID, payload: QuestionnaireResponseIn,
                     via: str, user_id: UUID | None = None) -> dict:
     """Valid answers for an issued questionnaire while its assignment is workable. Public calls
@@ -105,20 +115,24 @@ def submit_response(db: Session, questionnaire_id: UUID, payload: QuestionnaireR
         raise HTTPException(status_code=409, detail="The questionnaire is not accepting answers")
     if q["link_expires_at"] is not None and q["link_expires_at"] <= _now():
         raise HTTPException(status_code=410, detail="The questionnaire link has expired")
-    # Stop at respondents_needed (audit #9): the leader raises respondents_needed to reopen the link.
-    # Two simultaneous submissions can still overshoot by one (no DDL possible here); that is accepted.
+    # Fast path for the common full case; the conditional INSERT below is the real gate.
     if q["responses_count"] >= q["respondents_needed"]:
         raise HTTPException(status_code=409, detail="The questionnaire already has the needed number of responses")
     rows = _validated_answers(db, questionnaire_id, payload)
-    rid = db.execute(text("""
-        INSERT INTO aidaa_core.questionnaire_response
-            (questionnaire_id, name, position, age, last_degree, gender, submitted_via, submitted_by)
-        VALUES (CAST(:q AS uuid), :name, :pos, :age, :deg, :g, :via,
-                CAST(:u AS uuid))
-        RETURNING response_id
-    """), {"q": str(questionnaire_id), "name": payload.name, "pos": payload.position,
-           "age": payload.age, "deg": payload.last_degree, "g": payload.gender, "via": via,
-           "u": str(user_id) if user_id else None}).scalar_one()
+    # Serialise capacity check + insert per questionnaire. A plain INSERT..SELECT would still count
+    # a snapshot taken before a competing transaction committed, so two simultaneous submissions
+    # could both see "29 of 30" and both insert. The transaction-scoped advisory lock needs no DDL
+    # and is released by the same commit/rollback that ends the request.
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(CAST(:q AS text)))"),
+               {"q": str(questionnaire_id)})
+    rid = db.execute(text(_INSERT_CAPPED), {
+        "q": str(questionnaire_id), "name": payload.name, "pos": payload.position,
+        "age": payload.age, "deg": payload.last_degree, "g": payload.gender, "via": via,
+        "u": str(user_id) if user_id else None,
+        "needed": q["respondents_needed"],
+    }).scalar()
+    if rid is None:
+        raise HTTPException(status_code=409, detail="The questionnaire already has the needed number of responses")
     for a in rows:
         db.execute(text("""
             INSERT INTO aidaa_core.questionnaire_answer

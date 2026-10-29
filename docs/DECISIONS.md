@@ -366,6 +366,28 @@ Format: date, decision, reason.
   files. A FULL REPLACEMENT is still given only when the owner asks for it. The "go code" and "go sql" gates
   are unchanged, and an unread file is never guessed.
 
+## 2026-10-29: the anonymous answer cap lives in the database, not in a pre-count
+
+- The public questionnaire used to read `responses_count`, compare it to `respondents_needed`, then
+  insert. Two simultaneous requests could both read 29 of 30 and both insert. The insert is now
+  conditional (`INSERT ... SELECT ... WHERE (SELECT count(*)) < needed`) and runs behind a
+  transaction-scoped advisory lock keyed by the questionnaire id.
+- The lock is what makes the conditional insert correct under READ COMMITTED: a competing statement
+  that starts before the first commit would still count the old snapshot, so the condition alone is
+  not enough. The lock serialises the two statements; the second one starts after the first commit
+  and sees the new row. It needs no DDL and is released by the same commit/rollback that ends the
+  request. A per-questionnaire key means different questionnaires never wait for each other.
+- The public router now commits. It writes no audit row (there is no actor), so it does not go
+  through the authenticated routers' "service, log, commit" sequence; without its own `db.commit()`
+  the answer was rolled back when the request session closed. The commit stays in the router, not the
+  service, because the in-app PIC endpoint logs the submission and commits itself.
+- Flood control is not duplicated in the application. A per-IP limiter would need shared state across
+  workers and would still be bypassed by a NATed group; nginx owns it at the edge
+  (`docs/ops/nginx-rate-limit-public.md`). The application keeps the hard cap, which is the part that
+  protects the report's evidence.
+- The public flow stays anonymous: no IP is stored, so "one response per respondent" cannot be
+  enforced in the database. The leader still controls the quota and can regenerate the link.
+
 ## 2026-10-29: IAM answers are memoised per request, rows the app writes are not
 
 - The upscale audit counted the same permission question five to nine times on one detail read: the

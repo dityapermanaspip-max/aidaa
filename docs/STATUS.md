@@ -12,6 +12,20 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Public questionnaire cap and an anonymous commit (2026-10-29, branch `upscale_readiness`)**:
+  `POST /public/questionnaires/{token}` now commits. It used to return 201 and then lose the row when
+  the request session closed, because the public router is the only write path without an audit
+  entry and never called `db.commit()`; anonymous answers were never stored. The capacity check and
+  the insert are now one statement guarded by a transaction-scoped advisory lock per questionnaire
+  (`pg_advisory_xact_lock(hashtext(questionnaire_id))`), so two simultaneous submissions cannot pass
+  `respondents_needed`: the second waits for the first commit, then inserts nothing and answers 409.
+  The cheap pre-check after `get_questionnaire` stays as the fast path. The in-app PIC path uses the
+  same service and therefore the same gate. Flood control stays at the edge:
+  `docs/ops/nginx-rate-limit-public.md` has the `limit_req` recipe for `/api/aidaa-public/` and the
+  backend public path (owner applies it on the VPS; the agent did not touch nginx). Four new tests in
+  `tests/test_public_questionnaire.py` cover the cap, the SQL guard with a stale pre-check, the
+  per-questionnaire lock and the router commit; the seeded chain stays inside the rollback
+  transaction. NOT exercised in the browser or against nginx (2026-10-29).
 - **Permission memoisation and authorisation tests (2026-10-29, branch `upscale_readiness`)**: the
   same IAM answers were recomputed five to nine times per request. `app/services/request_memo.py`
   caches them on the request's `Session` (`Session.info`), which `get_db` already scopes to one request

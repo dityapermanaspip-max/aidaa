@@ -32,4 +32,9 @@ def get_public_questionnaire(token: UUID, db: Session = Depends(get_db)):
 def submit_public_questionnaire(token: UUID, payload: QuestionnaireResponseIn,
                                 db: Session = Depends(get_db)):
     qid = svc.public_questionnaire_id(db, token)
-    return svc.submit_response(db, qid, payload, "public", None)
+    out = svc.submit_response(db, qid, payload, "public", None)
+    # There is no audit row to write (no actor), but the response itself must be committed: this
+    # router does not go through the authenticated endpoints' commit path. The capacity advisory
+    # lock is transaction-scoped, so it is released here too.
+    db.commit()
+    return out
