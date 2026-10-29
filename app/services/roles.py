@@ -122,7 +122,9 @@ def get_my_access(db: Session, user_id: UUID, assignment_id: UUID) -> dict:
 
     # Scope probe on the owner org plus the caller's PIC unit orgs: no effective audit.*
     # permission there means 403.
-    codes = _perm_codes(db, user_id, scope["owner_org_id"])
+    # Copy before the union: _perm_codes returns the memoised set, and `|=` would
+    # otherwise write the PIC org codes into the cache entry of the owner org.
+    codes = set(_perm_codes(db, user_id, scope["owner_org_id"]))
     for org_id in pic_orgs:
         codes |= _perm_codes(db, user_id, org_id)
     if not codes:

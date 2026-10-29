@@ -112,6 +112,28 @@ def test_memo_does_not_leak_between_sessions(db, make_user, monkeypatch):
     assert len(calls) == 2
 
 
+# --- assignment access and the memo ----------------------------------------
+
+
+def test_get_my_access_does_not_pollute_the_permission_cache(db, monkeypatch):
+    owner, pic = uuid4(), uuid4()
+    owner_codes = {"audit.assignment.read"}
+    pic_codes = {"audit.finding.read"}
+    monkeypatch.setattr(roles, "assignment_scope", lambda session, aid: {
+        "owner_org_id": owner, "status": "issued", "unit_org_ids": [pic],
+    })
+    monkeypatch.setattr(roles, "my_assignment_role", lambda session, uid, aid: None)
+    monkeypatch.setattr(roles, "pic_unit_orgs", lambda session, uid, units: [pic])
+    monkeypatch.setattr(roles, "_perm_codes",
+                        lambda session, uid, org: owner_codes if org == owner else pic_codes)
+
+    result = roles.get_my_access(db, uuid4(), uuid4())
+
+    assert result["is_auditee_pic"] is True
+    # The union in get_my_access must not write the PIC codes into the owner's cache entry.
+    assert owner_codes == {"audit.assignment.read"}
+
+
 # --- roots (findings 8 and 13) ---------------------------------------------
 
 

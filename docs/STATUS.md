@@ -21,10 +21,11 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   the roots unless a root is explicit; `get_root` derives the single root lazily. `pic_unit_orgs` is
   one recursive query for the whole unit list (a root-org PIC covers descendants), and
   `check_org_any_permission` resolves the record's org once instead of once per code.
-  New suite `tests/` (`pytest.ini`, `conftest.py`, `test_auth_scope.py`, 16 tests) covers a global
+  New suite `tests/` (`pytest.ini`, `conftest.py`, `test_auth_scope.py`, 17 tests) covers a global
   grant, an org grant with descendants, no grant, memo identity and request isolation, single-root /
   two-root 409 / pinned root, lazy and invalid `resolve_root`, multi-unit PIC in one query, and the
-  any-of check. Tests seed IAM rows and roll back; `python -m pytest -q` passes and leaves no rows
+  any-of check; one test proves the PIC union in `get_my_access` does not write into the owner org's
+  memoised set. Tests seed IAM rows and roll back; `python -m pytest -q` passes and leaves no rows
   (2026-10-29). NOT exercised in the browser.
 - **List pagination (2026-10-29, branch `upscale_readiness`)**: every cross-record list takes `limit` and
   `offset` and ends its SQL with `LIMIT :lim OFFSET :off` through `app/services/paging.py`. Covered:
