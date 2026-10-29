@@ -27,8 +27,9 @@ router = APIRouter()
 
 @router.get("/auditors", response_model=List[AuditorOut])
 def list_auditors(active_only: bool = True, search: Optional[str] = Query(None),
+                  limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                   db: Session = Depends(get_db), user=Depends(auditor_read)):
-    return svc.list_auditors(db, user.user_id, active_only, search)
+    return svc.list_auditors(db, user.user_id, active_only, search, limit, offset)
 
 
 @router.get("/auditors/{auditor_id}", response_model=AuditorOut)
@@ -119,8 +120,9 @@ def extract_expertise(auditor_id: UUID, payload: ExpertiseExtractRequest,
 
 @router.get("/auditors/{auditor_id}/expertise/ai-suggestions", response_model=List[SuggestionOut])
 def list_expertise_ai(auditor_id: UUID, status: Optional[str] = Query(None),
+                      limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                       db: Session = Depends(get_db), user=Depends(expertise_read)):
-    return esvc.list_extracts(db, user.user_id, auditor_id, status)
+    return esvc.list_extracts(db, user.user_id, auditor_id, status, limit, offset)
 
 
 @router.post("/expertise-ai-suggestions/{suggestion_id}/decide", response_model=SuggestionOut)

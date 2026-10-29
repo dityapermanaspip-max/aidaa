@@ -1,9 +1,11 @@
+from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.audit_setting import NAME_JOIN, get_root, get_iau_org
+from app.services.paging import page, reference_page
 
 _TREE = """
     WITH RECURSIVE iau AS (
@@ -20,7 +22,8 @@ def _scope(db: Session, user_id: UUID):
     return root, iau
 
 
-def list_org_options(db: Session, user_id: UUID) -> list[dict]:
+def list_org_options(db: Session, user_id: UUID,
+                     limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     """Orgs under the caller's root (root excluded). in_iau marks the Internal Audit Unit subtree."""
     root, iau = _scope(db, user_id)
     rows = db.execute(text(f"""
@@ -32,11 +35,14 @@ def list_org_options(db: Session, user_id: UUID) -> list[dict]:
         WHERE o.is_active = TRUE AND COALESCE(o.root_org_id, o.org_id) = CAST(:r AS uuid)
           AND o.org_id <> CAST(:r AS uuid)
         ORDER BY o.org_code
-    """), {"i": str(iau) if iau else None, "r": str(root)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"i": str(iau) if iau else None, "r": str(root),
+           **reference_page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 
-def list_auditor_candidates(db: Session, user_id: UUID) -> list[dict]:
+def list_auditor_candidates(db: Session, user_id: UUID,
+                            limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     """Users holding AIDAA.AUDITOR inside the IAU subtree who are not registered as auditors yet."""
     _, iau = _scope(db, user_id)
     if not iau:
@@ -55,7 +61,8 @@ def list_auditor_candidates(db: Session, user_id: UUID) -> list[dict]:
               AND NOT EXISTS (SELECT 1 FROM aidaa_core.auditor a WHERE a.user_id = u.user_id)
             ORDER BY u.user_id, m.created_at
         ) c ORDER BY c.username
-    """), {"i": str(iau)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"i": str(iau), **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

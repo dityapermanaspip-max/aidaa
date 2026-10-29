@@ -18,6 +18,7 @@ from app.schemas.library_ai import LibraryImproveRequest, LibraryImprovement
 from app.services.ai_engine import generate_json
 from app.services.library_ai import _next_number
 from app.services.logs import log_edit, log_status
+from app.services.paging import page
 from app.services.scope import get_root
 
 _COLS = ("suggestion_id, feature, record_type, record_id, engine, model_name, input_ref, output, "
@@ -52,7 +53,8 @@ def _active_procedures(db: Session, library_pka_id):
 
 
 def list_improvements(db: Session, user_id: UUID, library_pka_id: Optional[UUID] = None,
-                      status: Optional[str] = None) -> list[dict]:
+                      status: Optional[str] = None,
+                      limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_COLS_S} {_FROM}
         WHERE s.feature = 'library_improvement' AND s.record_type = 'library_pka'
@@ -60,8 +62,9 @@ def list_improvements(db: Session, user_id: UUID, library_pka_id: Optional[UUID]
           AND (CAST(:k AS uuid) IS NULL OR s.record_id = CAST(:k AS uuid))
           AND (CAST(:st AS text) IS NULL OR s.status = CAST(:st AS text))
         ORDER BY s.created_at DESC
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "k": str(library_pka_id) if library_pka_id else None,
-           "st": status}).fetchall()
+           "st": status, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

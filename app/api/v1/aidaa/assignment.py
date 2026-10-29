@@ -25,9 +25,11 @@ router = APIRouter()
 def list_assignments(active_only: bool = True, status: Optional[str] = Query(None),
                      plan_id: Optional[UUID] = None, unplanned_only: bool = False,
                      search: Optional[str] = Query(None),
+                     limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                      db: Session = Depends(get_db), user=Depends(assignment_read)):
     org_ids = get_user_accessible_org_ids(db, user.user_id, "audit.assignment.read")
-    return svc.list_assignments(db, org_ids, active_only, status, plan_id, unplanned_only, search)
+    return svc.list_assignments(db, org_ids, active_only, status, plan_id, unplanned_only, search,
+                                limit, offset)
 
 
 @router.post("", response_model=AssignmentOut, status_code=201)

@@ -12,9 +12,20 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **List pagination (2026-10-29, branch `upscale_readiness`)**: every cross-record list takes `limit` and
+  `offset` and ends its SQL with `LIMIT :lim OFFSET :off` through `app/services/paging.py`. Covered:
+  assignments, plans, auditors, funding sources, library PKA, deviations, my tasks, auditor candidates,
+  org options, the five AI draft/extract lists, cost components and cost rates. Reference lists
+  (locations, audit types, units, org options, cost components) use a wide default of 1000 (cap 2000)
+  because dropdowns read them whole; the rest default to 200 (= cap) until the frontend pager ships.
+  The response stays a plain array, so no screen and no `aFetch` changed; another page exists while a
+  page comes back full. List endpoints scoped to one parent (team, visits, legs, findings, PKA,
+  procedures, reports, correspondence) stay unpaginated: the parent bounds them. Exercised locally
+  against the real DB (every changed list called with `limit`/`offset`, truncation and offset verified;
+  2026-10-29). NOT exercised in the browser.
 - **Background job queue, patch 11 (2026-10-29, branch `upscale_readiness`)**: AI generation and PDF/OCR
-  left the request thread. `sql/aidaa_patch_11_jobs.sql` adds `aidaa_core.job` and is **NOT applied yet**
-  (needs "go sql"; every AI/OCR endpoint fails until it is). The nine AI POSTs (pka/report/team
+  left the request thread. `sql/aidaa_patch_11_jobs.sql` adds `aidaa_core.job` and is **APPLIED locally**
+  (2026-10-29); the VPS still needs it, and every AI/OCR endpoint fails there until it runs. The nine AI POSTs (pka/report/team
   suggestions, trip draft, library draft + improvement, expertise extract, plan budget, SBM draft) and
   `POST /documents/extract` now answer **202** `{job_id,status}`; `GET /jobs/{job_id}` (owner-scoped)
   carries the result, and the worker replays the same `iam.audit_log` row the router wrote. The worker is

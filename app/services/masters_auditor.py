@@ -10,6 +10,7 @@ from app.schemas.aidaa import (
     ExpertiseVerify, DocumentCreate,
 )
 from app.services.masters import _exists, _update_row
+from app.services.paging import page
 from app.services.scope import get_root, root_of_org, assert_in_root
 
 # --- auditor ---
@@ -30,7 +31,8 @@ def _check_auditor_refs(db: Session, org_id: Optional[UUID], location_id: Option
 
 
 def list_auditors(db: Session, user_id: UUID, active_only: bool = True,
-                  search: Optional[str] = None) -> list[dict]:
+                  search: Optional[str] = None,
+                  limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""{_AUD_SQL}
         WHERE a.root_org_id = CAST(:r AS uuid)
           AND (:active_only = FALSE OR a.is_active = TRUE)
@@ -39,8 +41,9 @@ def list_auditors(db: Session, user_id: UUID, active_only: bool = True,
                OR u.email ILIKE CAST(:q AS text)
                OR a.employee_no ILIKE CAST(:q AS text))
         ORDER BY u.username
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "active_only": active_only,
-           "q": f"%{search}%" if search else None}).fetchall()
+           "q": f"%{search}%" if search else None, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

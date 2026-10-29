@@ -16,9 +16,10 @@ router = APIRouter()
 
 @router.get("/{plan_id}/ai/budget-drafts", response_model=List[SuggestionOut])
 def list_drafts(plan_id: UUID, status: Optional[str] = Query(None),
+                limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                 db: Session = Depends(get_db), user=Depends(budget_read)):
     check_org_permission(db, user, "audit.budget.read", "plan", plan_id)
-    return svc.list_drafts(db, user.user_id, plan_id, status)
+    return svc.list_drafts(db, user.user_id, plan_id, status, limit, offset)
 
 
 @router.post("/{plan_id}/ai/budget-drafts", response_model=JobAccepted, status_code=202)

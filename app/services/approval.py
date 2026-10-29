@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.aidaa import TaskDecision
 from app.services.logs import log_approval
+from app.services.paging import page
 
 _TASK_SQL = """
     SELECT t.task_id, t.record_type, t.record_id, t.plan_id, t.finding_id, t.report_id, t.settlement_id,
@@ -141,7 +142,8 @@ def decide_task(db: Session, task_id: UUID, user_id: UUID, payload: TaskDecision
     return task
 
 
-def list_my_tasks(db: Session, user_id: UUID, status: str = "pending") -> list[dict]:
+def list_my_tasks(db: Session, user_id: UUID, status: str = "pending",
+                  limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         {_TASK_SQL}
         WHERE t.status = :st
@@ -149,5 +151,6 @@ def list_my_tasks(db: Session, user_id: UUID, status: str = "pending") -> list[d
           AND (t.assigned_user_id = CAST(:u AS uuid)
                OR (t.assigned_user_id IS NULL AND s.approver_kind = 'global_role' AND {_HOLDS_ROLE}))
         ORDER BY t.created_at
-    """), {"st": status, "u": str(user_id)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"st": status, "u": str(user_id), **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]

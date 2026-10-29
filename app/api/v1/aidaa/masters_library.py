@@ -19,8 +19,9 @@ router = APIRouter()
 @router.get("/library/pka", response_model=List[PkaOut])
 def list_pka(active_only: bool = True, type_id: Optional[UUID] = None,
              search: Optional[str] = Query(None),
+             limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
              db: Session = Depends(get_db), user=Depends(library_read)):
-    return svc.list_pka(db, user.user_id, active_only, type_id, search)
+    return svc.list_pka(db, user.user_id, active_only, type_id, search, limit, offset)
 
 
 @router.get("/library/pka/{library_pka_id}", response_model=PkaOut)

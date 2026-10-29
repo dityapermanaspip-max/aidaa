@@ -12,6 +12,7 @@ from app.services.masters import _exists, _update_row
 from app.services.logs import log_edit, log_status, log_team
 from app.services.conflict import check_conflict
 from app.services.org_options import assert_owner_org
+from app.services.paging import page
 from app.services.scope import get_root, root_of_org, assert_in_root
 from app.services.unit_links import (
     clean_units, check_units, unit_org_ids, unit_ids_for, unit_ids_of, sync_units,
@@ -65,7 +66,8 @@ def get_plan(db: Session, plan_id: UUID) -> dict:
 
 def list_plans(db: Session, org_ids: Optional[List[UUID]], active_only: bool = True,
                fiscal_year: Optional[int] = None, status: Optional[str] = None,
-               search: Optional[str] = None) -> list[dict]:
+               search: Optional[str] = None,
+               limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_PLAN_COLS} FROM aidaa_core.audit_plan
         WHERE (:all_orgs OR owner_org_id = ANY(CAST(:orgs AS uuid[])))
@@ -74,9 +76,10 @@ def list_plans(db: Session, org_ids: Optional[List[UUID]], active_only: bool = T
           AND (CAST(:st AS text) IS NULL OR status = CAST(:st AS text))
           AND (CAST(:q AS text) IS NULL OR plan_no ILIKE CAST(:q AS text))
         ORDER BY fiscal_year DESC, plan_no
+        LIMIT :lim OFFSET :off
     """), {"all_orgs": org_ids is None, "orgs": [str(o) for o in (org_ids or [])],
            "active_only": active_only, "fy": fiscal_year, "st": status,
-           "q": f"%{search}%" if search else None}).fetchall()
+           "q": f"%{search}%" if search else None, **page(limit, offset)}).fetchall()
     plans = [dict(r._mapping) for r in rows]
     units = unit_ids_for(db, "plan", [p["plan_id"] for p in plans])
     for p in plans:

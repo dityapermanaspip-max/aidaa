@@ -19,6 +19,7 @@ from app.schemas.ai import SuggestionDecision
 from app.schemas.sbm_ai import SbmDraft, SbmDraftRequest, SbmNaming, SbmRate
 from app.services.ai_engine import generate_json
 from app.services.logs import log_edit, log_status
+from app.services.paging import page
 from app.services.scope import get_root
 from app.services import sbm_ai_parse as _parse
 
@@ -73,15 +74,17 @@ _HINT = {
 }
 
 
-def _row(db: Session, user_id: UUID, suggestion_id: Optional[UUID] = None, status: Optional[str] = None):
+def _row(db: Session, user_id: UUID, suggestion_id: Optional[UUID] = None, status: Optional[str] = None,
+         limit: Optional[int] = None, offset: int = 0):
     return db.execute(text(f"""
         SELECT {_COLS} FROM aidaa_ai.ai_suggestion
         WHERE feature = 'sbm_draft' AND record_id = CAST(:r AS uuid)
           AND (CAST(:id AS uuid) IS NULL OR suggestion_id = CAST(:id AS uuid))
           AND (CAST(:st AS text) IS NULL OR status = CAST(:st AS text))
         ORDER BY created_at DESC
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "id": str(suggestion_id) if suggestion_id else None,
-           "st": status}).fetchall()
+           "st": status, **page(limit, offset)}).fetchall()
 
 
 def get_draft(db: Session, user_id: UUID, suggestion_id: UUID) -> dict:
@@ -91,8 +94,9 @@ def get_draft(db: Session, user_id: UUID, suggestion_id: UUID) -> dict:
     return dict(rows[0]._mapping)
 
 
-def list_drafts(db: Session, user_id: UUID, status: Optional[str] = None) -> list[dict]:
-    return [dict(r._mapping) for r in _row(db, user_id, None, status)]
+def list_drafts(db: Session, user_id: UUID, status: Optional[str] = None,
+                limit: Optional[int] = None, offset: int = 0) -> list[dict]:
+    return [dict(r._mapping) for r in _row(db, user_id, None, status, limit, offset)]
 
 
 def generate_draft(db: Session, payload: SbmDraftRequest, user_id: UUID) -> dict:

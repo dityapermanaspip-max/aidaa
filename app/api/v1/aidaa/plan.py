@@ -20,9 +20,10 @@ router = APIRouter()
 @router.get("", response_model=List[PlanOut])
 def list_plans(active_only: bool = True, fiscal_year: Optional[int] = None,
                status: Optional[str] = Query(None), search: Optional[str] = Query(None),
+               limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                db: Session = Depends(get_db), user=Depends(plan_read)):
     org_ids = get_user_accessible_org_ids(db, user.user_id, "audit.plan.read")
-    return svc.list_plans(db, org_ids, active_only, fiscal_year, status, search)
+    return svc.list_plans(db, org_ids, active_only, fiscal_year, status, search, limit, offset)
 
 
 @router.post("", response_model=PlanOut, status_code=201)

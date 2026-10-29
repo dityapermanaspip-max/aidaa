@@ -10,6 +10,7 @@ from app.schemas.aidaa import (
     CostComponentCreate, CostComponentUpdate, CostRateCreate, CostRateUpdate, CostRateDecision,
 )
 from app.services.budget_core import location_fits
+from app.services.paging import page, reference_page
 from app.services.masters import _update_row, _like
 from app.services.scope import get_root, assert_in_root, scoped_get
 
@@ -21,14 +22,17 @@ _COMP_COLS = ("component_id, component_code, component_name, calc_basis, sort_or
               "is_active, created_at, updated_at")
 
 
-def list_components(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None) -> list[dict]:
+def list_components(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None,
+                    limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_COMP_COLS} FROM {_COMP}
         WHERE root_org_id = CAST(:r AS uuid) AND (:active_only = FALSE OR is_active = TRUE)
           AND (CAST(:q AS text) IS NULL
                OR component_name ILIKE CAST(:q AS text) OR component_code ILIKE CAST(:q AS text))
         ORDER BY sort_order, component_code
-    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search),
+           **reference_page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 
@@ -138,7 +142,7 @@ def list_rates(db: Session, user_id: UUID, active_only: bool = True, component_i
     """), {"r": str(get_root(db, user_id)), "active_only": active_only,
            "c": str(component_id) if component_id else None,
            "l": str(location_id) if location_id else None, "s": status,
-           "g": grade, "lim": limit, "off": offset}).fetchall()
+           "g": grade, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

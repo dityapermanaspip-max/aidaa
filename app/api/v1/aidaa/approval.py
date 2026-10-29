@@ -1,6 +1,6 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,8 +13,9 @@ router = APIRouter()
 
 @router.get("/my-tasks", response_model=List[TaskOut])
 def my_tasks(status: Literal["pending", "approved", "rejected", "returned", "cancelled"] = "pending",
+             limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
              db: Session = Depends(get_db), user=Depends(task_read)):
-    return svc.list_my_tasks(db, user.user_id, status)
+    return svc.list_my_tasks(db, user.user_id, status, limit, offset)
 
 
 @router.post("/tasks/{task_id}/decide", response_model=TaskOut)

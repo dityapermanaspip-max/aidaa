@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.aidaa import PkaCreate, PkaUpdate, ProcedureCreate, ProcedureUpdate
 from app.services.masters import _update_row, _like
+from app.services.paging import page
 from app.services.scope import get_root, assert_in_root
 
 # --- library_pka (scoped by root_org_id, hours are calculated from active procedures) ---
@@ -31,15 +32,18 @@ def _pka(db: Session, root_id: UUID, library_pka_id: UUID) -> dict:
 
 
 def list_pka(db: Session, user_id: UUID, active_only: bool = True, type_id: Optional[UUID] = None,
-             search: Optional[str] = None) -> list[dict]:
+             search: Optional[str] = None,
+             limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""{_PKA_SQL}
         WHERE k.root_org_id = CAST(:r AS uuid) AND (:active_only = FALSE OR k.is_active = TRUE)
           AND (CAST(:t AS uuid) IS NULL OR k.type_id = CAST(:t AS uuid))
           AND (CAST(:q AS text) IS NULL
                OR k.title ILIKE CAST(:q AS text) OR k.pka_code ILIKE CAST(:q AS text))
         ORDER BY k.pka_code
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "active_only": active_only,
-           "t": str(type_id) if type_id else None, "q": _like(search)}).fetchall()
+           "t": str(type_id) if type_id else None, "q": _like(search),
+           **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

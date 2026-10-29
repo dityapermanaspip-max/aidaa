@@ -23,8 +23,9 @@ router = APIRouter()
 
 @router.get("/cost-components", response_model=List[CostComponentOut])
 def list_components(active_only: bool = True, search: Optional[str] = Query(None),
+                    limit: Optional[int] = Query(None, ge=1, le=2000), offset: int = Query(0, ge=0),
                     db: Session = Depends(get_db), user=Depends(coststd_read)):
-    return svc.list_components(db, user.user_id, active_only, search)
+    return svc.list_components(db, user.user_id, active_only, search, limit, offset)
 
 
 @router.get("/cost-components/{component_id}", response_model=CostComponentOut)

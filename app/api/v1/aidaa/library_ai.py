@@ -24,8 +24,9 @@ def list_models(user=Depends(library_manage)):
 
 @router.get("/library/ai/drafts", response_model=List[SuggestionOut])
 def list_drafts(type_id: Optional[UUID] = None, status: Optional[str] = Query(None),
+                limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                 db: Session = Depends(get_db), user=Depends(library_manage)):
-    return svc.list_drafts(db, user.user_id, type_id, status)
+    return svc.list_drafts(db, user.user_id, type_id, status, limit, offset)
 
 
 @router.post("/library/ai/drafts", response_model=JobAccepted, status_code=202)
@@ -64,8 +65,9 @@ def create_improvement(library_pka_id: UUID, payload: LibraryImproveRequest,
 
 @router.get("/library/pka/{library_pka_id}/ai-improvements", response_model=List[SuggestionOut])
 def list_improvements(library_pka_id: UUID, status: Optional[str] = Query(None),
+                      limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                       db: Session = Depends(get_db), user=Depends(library_read)):
-    return isvc.list_improvements(db, user.user_id, library_pka_id, status)
+    return isvc.list_improvements(db, user.user_id, library_pka_id, status, limit, offset)
 
 
 @router.post("/library/ai/improvements/{suggestion_id}/decide", response_model=SuggestionOut)

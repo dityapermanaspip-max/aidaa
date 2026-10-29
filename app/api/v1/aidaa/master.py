@@ -25,8 +25,9 @@ router = APIRouter()
 
 @router.get("/locations", response_model=List[LocationOut])
 def list_locations(active_only: bool = True, search: Optional[str] = Query(None),
+                   limit: Optional[int] = Query(None, ge=1, le=2000), offset: int = Query(0, ge=0),
                    db: Session = Depends(get_db), user=Depends(location_read)):
-    return masters.list_locations(db, user.user_id, active_only, search)
+    return masters.list_locations(db, user.user_id, active_only, search, limit, offset)
 
 
 @router.get("/locations/{location_id}", response_model=LocationOut)
@@ -64,8 +65,9 @@ def deactivate_location(location_id: UUID, db: Session = Depends(get_db), user=D
 
 @router.get("/audit-types", response_model=List[AuditTypeOut])
 def list_audit_types(active_only: bool = True, search: Optional[str] = Query(None),
+                     limit: Optional[int] = Query(None, ge=1, le=2000), offset: int = Query(0, ge=0),
                      db: Session = Depends(get_db), user=Depends(unit_read)):
-    return masters.list_audit_types(db, user.user_id, active_only, search)
+    return masters.list_audit_types(db, user.user_id, active_only, search, limit, offset)
 
 
 @router.get("/audit-types/{type_id}", response_model=AuditTypeOut)
@@ -103,8 +105,9 @@ def deactivate_audit_type(type_id: UUID, db: Session = Depends(get_db), user=Dep
 
 @router.get("/units", response_model=List[UnitOut])
 def list_units(active_only: bool = True, search: Optional[str] = Query(None),
+               limit: Optional[int] = Query(None, ge=1, le=2000), offset: int = Query(0, ge=0),
                db: Session = Depends(get_db), user=Depends(unit_read)):
-    return masters.list_units(db, user.user_id, active_only, search)
+    return masters.list_units(db, user.user_id, active_only, search, limit, offset)
 
 
 @router.get("/units/{unit_id}", response_model=UnitOut)

@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -12,13 +12,15 @@ router = APIRouter()
 
 
 @router.get("/org-options", response_model=List[OrgOptionOut])
-def org_options(db: Session = Depends(get_db), user=Depends(unit_read)):
-    return svc.list_org_options(db, user.user_id)
+def org_options(limit: Optional[int] = Query(None, ge=1, le=2000), offset: int = Query(0, ge=0),
+                db: Session = Depends(get_db), user=Depends(unit_read)):
+    return svc.list_org_options(db, user.user_id, limit, offset)
 
 
 @router.get("/auditor-candidates", response_model=List[AuditorCandidateOut])
-def auditor_candidates(db: Session = Depends(get_db), user=Depends(auditor_create)):
-    return svc.list_auditor_candidates(db, user.user_id)
+def auditor_candidates(limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
+                       db: Session = Depends(get_db), user=Depends(auditor_create)):
+    return svc.list_auditor_candidates(db, user.user_id, limit, offset)
 
 
 @router.get("/audit-setting", response_model=AuditSettingOut)

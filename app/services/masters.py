@@ -9,6 +9,7 @@ from app.schemas.aidaa import (
     LocationCreate, LocationUpdate, AuditTypeCreate, AuditTypeUpdate, UnitCreate, UnitUpdate,
 )
 from app.services.org_options import assert_client_org
+from app.services.paging import reference_page
 from app.services.scope import get_root, assert_in_root, scoped_get
 
 
@@ -56,7 +57,8 @@ _LOC_COLS = ("location_id, root_org_id, location_code, location_name, country, p
              "is_active, created_at, updated_at")
 
 
-def list_locations(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None) -> list[dict]:
+def list_locations(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None,
+                   limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     # Own rows plus the shared national master (root_org_id IS NULL).
     rows = db.execute(text(f"""
         SELECT {_LOC_COLS} FROM {_LOC}
@@ -66,7 +68,9 @@ def list_locations(db: Session, user_id: UUID, active_only: bool = True, search:
                OR location_name ILIKE CAST(:q AS text) OR location_code ILIKE CAST(:q AS text)
                OR city ILIKE CAST(:q AS text) OR province ILIKE CAST(:q AS text))
         ORDER BY country, province, city, location_code
-    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search),
+           **reference_page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 
@@ -127,14 +131,17 @@ _TYPE = "aidaa_core.ref_audit_type"
 _TYPE_COLS = "type_id, type_code, type_name, description, is_active, created_at, updated_at"
 
 
-def list_audit_types(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None) -> list[dict]:
+def list_audit_types(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None,
+                     limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_TYPE_COLS} FROM {_TYPE}
         WHERE root_org_id = CAST(:r AS uuid) AND (:active_only = FALSE OR is_active = TRUE)
           AND (CAST(:q AS text) IS NULL
                OR type_name ILIKE CAST(:q AS text) OR type_code ILIKE CAST(:q AS text))
         ORDER BY type_code
-    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search),
+           **reference_page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 
@@ -199,14 +206,17 @@ def _check_unit_refs(db: Session, user_id: UUID, org_id: Optional[UUID], locatio
         assert_in_root(db, _LOC, location_id, get_root(db, user_id), "Location")
 
 
-def list_units(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None) -> list[dict]:
+def list_units(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None,
+               limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_UNIT_COLS_U} {_UNIT_FROM}
           AND (:active_only = FALSE OR u.is_active = TRUE)
           AND (CAST(:q AS text) IS NULL
                OR u.unit_name ILIKE CAST(:q AS text) OR u.unit_code ILIKE CAST(:q AS text))
         ORDER BY u.unit_code
-    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search)}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"r": str(get_root(db, user_id)), "active_only": active_only, "q": _like(search),
+           **reference_page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

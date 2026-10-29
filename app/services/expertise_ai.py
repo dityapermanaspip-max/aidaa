@@ -18,6 +18,7 @@ from app.schemas.ai import SuggestionDecision
 from app.schemas.expertise_ai import ExpertiseExtract, ExpertiseExtractRequest
 from app.services.ai_engine import generate_json
 from app.services.approval import create_task, register_handler
+from app.services.paging import page
 from app.services.logs import log_comment, log_edit, log_status
 from app.services.masters_auditor import _assert_owner
 from app.services.scope import get_root
@@ -48,7 +49,8 @@ def get_extract(db: Session, user_id: UUID, suggestion_id: UUID) -> dict:
 
 
 def list_extracts(db: Session, user_id: UUID, auditor_id: Optional[UUID] = None,
-                  status: Optional[str] = None) -> list[dict]:
+                  status: Optional[str] = None,
+                  limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_COLS_S} {_FROM}
         WHERE s.feature = 'expertise_extract' AND s.record_type = 'auditor'
@@ -56,8 +58,9 @@ def list_extracts(db: Session, user_id: UUID, auditor_id: Optional[UUID] = None,
           AND (CAST(:a AS uuid) IS NULL OR s.record_id = CAST(:a AS uuid))
           AND (CAST(:st AS text) IS NULL OR s.status = CAST(:st AS text))
         ORDER BY s.created_at DESC
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "a": str(auditor_id) if auditor_id else None,
-           "st": status}).fetchall()
+           "st": status, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

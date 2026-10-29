@@ -18,8 +18,10 @@ router = APIRouter()
 @router.get("/sources", response_model=List[FundingOut])
 def list_funding(active_only: bool = True, fiscal_year: Optional[int] = None,
                  funding_type: Optional[str] = Query(None), search: Optional[str] = Query(None),
+                 limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                  db: Session = Depends(get_db), user=Depends(coststd_read)):
-    return svc.list_funding(db, user.user_id, active_only, fiscal_year, funding_type, search)
+    return svc.list_funding(db, user.user_id, active_only, fiscal_year, funding_type, search,
+                            limit, offset)
 
 
 @router.get("/sources/{funding_id}", response_model=FundingOut)

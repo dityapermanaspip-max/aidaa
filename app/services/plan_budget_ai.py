@@ -15,6 +15,7 @@ from app.services.ai_engine import generate_json
 from app.services.budget_core import insert_line, location_fits, resolve_price
 from app.services.budget_plan import editable_plan
 from app.services.logs import log_edit, log_status
+from app.services.paging import page
 from app.services.plans import get_plan
 from app.services.scope import get_root, root_of_org
 
@@ -45,14 +46,16 @@ def get_draft(db: Session, user_id: UUID, plan_id: UUID, suggestion_id: UUID) ->
     return dict(row._mapping)
 
 
-def list_drafts(db: Session, user_id: UUID, plan_id: UUID, status: Optional[str] = None) -> list[dict]:
+def list_drafts(db: Session, user_id: UUID, plan_id: UUID, status: Optional[str] = None,
+                limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     _plan_in_root(db, user_id, plan_id)
     rows = db.execute(text(f"""
         SELECT {_COLS} FROM aidaa_ai.ai_suggestion
         WHERE feature = 'budget' AND record_type = 'plan' AND record_id = CAST(:p AS uuid)
           AND (CAST(:st AS text) IS NULL OR status = CAST(:st AS text))
         ORDER BY created_at DESC
-    """), {"p": str(plan_id), "st": status}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"p": str(plan_id), "st": status, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

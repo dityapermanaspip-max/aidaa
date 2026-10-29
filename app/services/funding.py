@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.funding import FundingCreate, FundingUpdate, FundingDocCreate
 from app.services.masters import _update_row, _like
+from app.services.paging import page
 from app.services.scope import get_root, assert_in_root, scoped_get
 
 # --- ref_funding_source (master, scoped by root_org_id) ---
@@ -18,7 +19,8 @@ _COLS = ("funding_id, funding_code, funding_name, fiscal_year, funding_type, cei
 
 
 def list_funding(db: Session, user_id: UUID, active_only: bool = True, fiscal_year: Optional[int] = None,
-                 funding_type: Optional[str] = None, search: Optional[str] = None) -> list[dict]:
+                 funding_type: Optional[str] = None, search: Optional[str] = None,
+                 limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         SELECT {_COLS} FROM {_SRC}
         WHERE root_org_id = CAST(:r AS uuid) AND (:active_only = FALSE OR is_active = TRUE)
@@ -27,8 +29,9 @@ def list_funding(db: Session, user_id: UUID, active_only: bool = True, fiscal_ye
           AND (CAST(:q AS text) IS NULL
                OR funding_name ILIKE CAST(:q AS text) OR funding_code ILIKE CAST(:q AS text))
         ORDER BY fiscal_year DESC, funding_code
+        LIMIT :lim OFFSET :off
     """), {"r": str(get_root(db, user_id)), "active_only": active_only, "fy": fiscal_year,
-           "ft": funding_type, "q": _like(search)}).fetchall()
+           "ft": funding_type, "q": _like(search), **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

@@ -5,6 +5,8 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.paging import page
+
 _SQL = """
     SELECT v.assignment_id, v.assignment_no, v.plan_id, v.plan_no, v.is_unplanned,
            v.planned_auditors, v.actual_auditors, v.planned_days, v.actual_days,
@@ -14,12 +16,15 @@ _SQL = """
     LEFT JOIN aidaa_core.assignment a ON a.assignment_id = v.assignment_id
     WHERE (:all_orgs OR a.owner_org_id = ANY(CAST(:orgs AS uuid[])))
     ORDER BY v.is_unplanned DESC, a.start_date DESC, v.assignment_no
+    LIMIT :lim OFFSET :off
 """
 
 
-def list_deviations(db: Session, org_ids: Optional[List[UUID]]) -> list[dict]:
+def list_deviations(db: Session, org_ids: Optional[List[UUID]],
+                    limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(
         text(_SQL),
-        {"all_orgs": org_ids is None, "orgs": [str(o) for o in (org_ids or [])]},
+        {"all_orgs": org_ids is None, "orgs": [str(o) for o in (org_ids or [])],
+         **page(limit, offset)},
     ).fetchall()
     return [dict(r._mapping) for r in rows]

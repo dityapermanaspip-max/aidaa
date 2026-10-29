@@ -35,9 +35,10 @@ def list_models(db: Session = Depends(get_db), user=Depends(assignment_read)):
 
 @router.get("/{assignment_id}/ai/trip/drafts", response_model=list[SuggestionOut])
 def list_drafts(assignment_id: UUID, status: Optional[str] = Query(None),
+                limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                 db: Session = Depends(get_db), user=Depends(assignment_read)):
     _resolved(db, user, assignment_id)
-    return svc.list_drafts(db, user.user_id, assignment_id, status)
+    return svc.list_drafts(db, user.user_id, assignment_id, status, limit, offset)
 
 
 @router.post("/{assignment_id}/ai/trip/drafts", response_model=JobAccepted, status_code=202)

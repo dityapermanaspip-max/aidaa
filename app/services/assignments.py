@@ -12,6 +12,7 @@ from app.services.logs import log_edit, log_status, log_comment
 from app.services.budgets import copy_plan_lines, assert_funding_matches
 from app.services.conflict import check_conflict
 from app.services.org_options import assert_owner_org
+from app.services.paging import page
 from app.services.scope import get_root, assert_in_root
 from app.services.unit_links import clean_units, check_units, unit_org_ids, unit_ids_for, sync_units
 
@@ -55,7 +56,8 @@ def assert_read_access(org_ids: Optional[List[UUID]], a: dict):
 
 def list_assignments(db: Session, org_ids: Optional[List[UUID]], active_only: bool = True,
                      status: Optional[str] = None, plan_id: Optional[UUID] = None,
-                     unplanned_only: bool = False, search: Optional[str] = None) -> list[dict]:
+                     unplanned_only: bool = False, search: Optional[str] = None,
+                     limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     rows = db.execute(text(f"""
         {_ASG_SQL}
         WHERE (:all_orgs
@@ -71,10 +73,11 @@ def list_assignments(db: Session, org_ids: Optional[List[UUID]], active_only: bo
           AND (:unplanned = FALSE OR a.plan_id IS NULL)
           AND (CAST(:q AS text) IS NULL OR a.assignment_no ILIKE CAST(:q AS text))
         ORDER BY a.start_date DESC, a.assignment_no
+        LIMIT :lim OFFSET :off
     """), {"all_orgs": org_ids is None, "orgs": [str(o) for o in (org_ids or [])],
            "active_only": active_only, "st": status,
            "p": str(plan_id) if plan_id else None, "unplanned": unplanned_only,
-           "q": f"%{search}%" if search else None}).fetchall()
+           "q": f"%{search}%" if search else None, **page(limit, offset)}).fetchall()
     items = [dict(r._mapping) for r in rows]
     units = unit_ids_for(db, "assignment", [a["assignment_id"] for a in items])
     for a in items:

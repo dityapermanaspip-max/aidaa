@@ -17,8 +17,9 @@ router = APIRouter()
 
 @router.get("/sbm/ai/drafts", response_model=List[SuggestionOut])
 def list_drafts(status: Optional[str] = Query(None),
+                limit: Optional[int] = Query(None, ge=1, le=200), offset: int = Query(0, ge=0),
                 db: Session = Depends(get_db), user=Depends(costrate_read)):
-    return svc.list_drafts(db, user.user_id, status)
+    return svc.list_drafts(db, user.user_id, status, limit, offset)
 
 
 @router.post("/sbm/ai/drafts", response_model=JobAccepted, status_code=202)

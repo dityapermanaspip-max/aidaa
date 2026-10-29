@@ -14,6 +14,7 @@ from app.schemas.trip_ai import (
 from app.services.ai_engine import generate_json
 from app.services.budget_trip import sync_leg_line
 from app.services.logs import log_edit, log_status
+from app.services.paging import page
 from app.services.scope import get_root, root_of_org, assert_in_root
 from app.services.trip_common import open_assignment
 from app.services.trip_leg import create_leg
@@ -51,7 +52,8 @@ def get_draft(db: Session, user_id: UUID, assignment_id: UUID, suggestion_id: UU
     return dict(row._mapping)
 
 
-def list_drafts(db: Session, user_id: UUID, assignment_id: UUID, status: Optional[str] = None) -> list[dict]:
+def list_drafts(db: Session, user_id: UUID, assignment_id: UUID, status: Optional[str] = None,
+                limit: Optional[int] = None, offset: int = 0) -> list[dict]:
     root = get_root(db, user_id)
     rows = db.execute(text(f"""
         SELECT {_COLS} FROM aidaa_ai.ai_suggestion s
@@ -60,7 +62,8 @@ def list_drafts(db: Session, user_id: UUID, assignment_id: UUID, status: Optiona
           AND EXISTS (SELECT 1 FROM aidaa_core.assignment x JOIN iam.organizations o ON o.org_id = x.owner_org_id
                       WHERE x.assignment_id = s.record_id AND COALESCE(o.root_org_id, o.org_id) = CAST(:r AS uuid))
         ORDER BY s.created_at DESC
-    """), {"a": str(assignment_id), "r": str(root), "st": status}).fetchall()
+        LIMIT :lim OFFSET :off
+    """), {"a": str(assignment_id), "r": str(root), "st": status, **page(limit, offset)}).fetchall()
     return [dict(r._mapping) for r in rows]
 
 

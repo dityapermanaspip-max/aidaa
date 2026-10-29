@@ -365,3 +365,23 @@ Format: date, decision, reason.
   the frontend entry point and the actual workflow: the agent reads the repository from disk and edits the
   files. A FULL REPLACEMENT is still given only when the owner asks for it. The "go code" and "go sql" gates
   are unchanged, and an unread file is never guessed.
+
+## 2026-10-29: every cross-record list is bounded (limit/offset, array shape kept)
+
+- The upscale audit found list endpoints serialising whole tables (6,000 auditors, every assignment).
+  Every list that can grow with total data now takes `limit`/`offset`; the SQL ends with
+  `LIMIT :lim OFFSET :off` and `app/services/paging.py` clamps both values.
+- The response stays a plain JSON array on purpose. A `{items, total}` envelope would have touched every
+  screen and every `aFetch` caller in the same batch, and the job queue already proved a contract change
+  can be absorbed in one place instead. A caller knows another page exists while the page comes back
+  full. `X-Total-Count` was skipped because it needs a second pass or a window column in every query;
+  add it with `count(*) OVER ()` only when a numbered pager is actually needed.
+- Defaults sit at the cap (200) for ordinary lists and 1000 (cap 2000) for reference lists that
+  dropdowns read whole (locations 552 rows, units, audit types, cost components, org options). The
+  frontend has no pager yet, so a default of 50 would silently hide rows a screen shows today. Lower
+  `paging.DEFAULT_LIMIT` to 50 in one line once the pager ships.
+- Reference lists are still bounded: a runaway master table must not serialise itself into memory, but
+  a 200 cap would break the location picker, so they get the wide window instead.
+- Parent-scoped lists (team members, visits, trip legs, findings, procedures, reports, correspondence,
+  questionnaire questions) stay unpaginated: one parent bounds them, and a page would only add
+  parameters nobody sends.
