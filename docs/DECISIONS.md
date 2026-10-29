@@ -366,6 +366,27 @@ Format: date, decision, reason.
   files. A FULL REPLACEMENT is still given only when the owner asks for it. The "go code" and "go sql" gates
   are unchanged, and an unread file is never guessed.
 
+## 2026-10-29: IAM answers are memoised per request, rows the app writes are not
+
+- The upscale audit counted the same permission question five to nine times on one detail read: the
+  callable orgs, the roots, the caller's roles and the effective codes. AIDAA never writes IAM tables,
+  so those answers cannot change inside a request. They are cached on `Session.info` (one Session per
+  request, closed by `get_db`), and the cache dies with the request; a new request pays one lookup.
+- Only IAM-derived answers are cached. Assignment, member, plan and team rows are written by this same
+  app, so `my_assignment_role` and `assignment_scope` keep reading fresh: a request that adds a team
+  member must not read its old role back from a cache.
+- `resolve_root` is lazy. Without `root_id`/`X-DH-Root` it returns the session and touches nothing;
+  `get_root` derives the single root only when a service asks for it. Endpoints such as health, jobs and
+  me no longer pay an org query they never used. A multi-root user still gets 409 until they send the
+  root, and an explicit root is still validated against the caller's roots (403 otherwise).
+- `pic_unit_orgs` asks one recursive query for the whole unit list instead of one per unit. The
+  recursion starts at each unit and walks ancestors, so a PIC role on a parent org covers descendants,
+  matching the old per-unit `is_auditee_pic`.
+- The new `tests/` suite exercises these paths against the real IAM views inside a transaction that is
+  rolled back. Doubles were rejected on purpose: the recursion over `iam.organizations` is the
+  behaviour under test. Grants are seeded per test, so the suite needs no fixture data beyond one
+  existing app-enabled root (`app_scope`), which IAM's org-application view requires.
+
 ## 2026-10-29: every cross-record list is bounded (limit/offset, array shape kept)
 
 - The upscale audit found list endpoints serialising whole tables (6,000 auditors, every assignment).

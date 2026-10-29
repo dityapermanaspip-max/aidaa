@@ -12,6 +12,20 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
  library AI pages (2026-10).
 
 ## Written, NOT yet exercised
+- **Permission memoisation and authorisation tests (2026-10-29, branch `upscale_readiness`)**: the
+  same IAM answers were recomputed five to nine times per request. `app/services/request_memo.py`
+  caches them on the request's `Session` (`Session.info`), which `get_db` already scopes to one request
+  and one user. Memoised: the callable orgs per permission (`deps_org`), the accessible roots
+  (`audit_setting`), the caller's global roles and effective `audit.*` codes (`roles`). Assignment and
+  team rows stay uncached because this app writes them inside requests. `resolve_root` no longer reads
+  the roots unless a root is explicit; `get_root` derives the single root lazily. `pic_unit_orgs` is
+  one recursive query for the whole unit list (a root-org PIC covers descendants), and
+  `check_org_any_permission` resolves the record's org once instead of once per code.
+  New suite `tests/` (`pytest.ini`, `conftest.py`, `test_auth_scope.py`, 16 tests) covers a global
+  grant, an org grant with descendants, no grant, memo identity and request isolation, single-root /
+  two-root 409 / pinned root, lazy and invalid `resolve_root`, multi-unit PIC in one query, and the
+  any-of check. Tests seed IAM rows and roll back; `python -m pytest -q` passes and leaves no rows
+  (2026-10-29). NOT exercised in the browser.
 - **List pagination (2026-10-29, branch `upscale_readiness`)**: every cross-record list takes `limit` and
   `offset` and ends its SQL with `LIMIT :lim OFFSET :off` through `app/services/paging.py`. Covered:
   assignments, plans, auditors, funding sources, library PKA, deviations, my tasks, auditor candidates,

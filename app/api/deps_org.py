@@ -5,6 +5,8 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.request_memo import memo
+
 # Table-to-org whitelist: resource -> (table, pk column, org column). Names never come from input.
 _ORG_RESOURCES = {
     "plan": ("aidaa_core.audit_plan", "plan_id", "owner_org_id"),
@@ -12,10 +14,10 @@ _ORG_RESOURCES = {
 }
 
 
-def get_user_accessible_org_ids(
+def _load_accessible_org_ids(
     db: Session, user_id: UUID, permission_code: str
 ) -> Optional[List[UUID]]:
-    """None = all orgs (global mapping with the permission). List = allowed orgs."""
+    """Run the two queries behind get_user_accessible_org_ids (not cached itself)."""
     global_check = db.execute(text("""
         SELECT 1
         FROM iam.active_user_roles m
@@ -56,6 +58,23 @@ def get_user_accessible_org_ids(
     return [row.org_id for row in rows]
 
 
+def get_user_accessible_org_ids(
+    db: Session, user_id: UUID, permission_code: str
+) -> Optional[List[UUID]]:
+    """None = all orgs (global mapping with the permission). List = allowed orgs.
+
+    Memoised per request: authorize_view, check_org_permission and the routers
+    ask the same (user, code) question several times, and the org-tree CTE is
+    the most expensive read on the path. AIDAA cannot change IAM rows inside a
+    request, so the first answer stays true until the request ends.
+    """
+    return memo(
+        db,
+        ("accessible_org_ids", str(user_id), permission_code),
+        lambda: _load_accessible_org_ids(db, user_id, permission_code),
+    )
+
+
 def get_resource_org_id(db: Session, resource: str, resource_id: UUID) -> UUID:
     """Find the org of a record through the whitelist (never use raw table names from input)."""
     if resource not in _ORG_RESOURCES:
@@ -80,15 +99,20 @@ def check_org_permission(db: Session, user, permission_code: str, resource: str,
 
 
 def check_org_any_permission(db: Session, user, permission_codes, resource: str, resource_id: UUID) -> UUID:
-    last = None
+    """Layer 1 when any of several codes is acceptable.
+
+    The record's org is resolved once; the old loop re-read it for every code
+    and ran the recursive org query per attempt (upscale audit finding 13).
+    """
+    org_id = get_resource_org_id(db, resource, resource_id)
     for code in permission_codes:
-        try:
-            return check_org_permission(db, user, code, resource, resource_id)
-        except HTTPException as exc:
-            if exc.status_code != 403:
-                raise
-            last = exc
-    raise last
+        allowed = get_user_accessible_org_ids(db, user.user_id, code)
+        if allowed is None or org_id in allowed:
+            return org_id
+    raise HTTPException(
+        status_code=403,
+        detail=f"Access denied: one of {list(permission_codes)} not held for this {resource}",
+    )
 
 
 def assert_org_access(db: Session, user, permission_code: str, org_id: UUID):

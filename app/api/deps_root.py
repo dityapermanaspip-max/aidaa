@@ -6,6 +6,10 @@ single root, which is then derived automatically. When the same user holds AIDAA
 roots (separate group companies), the caller picks the active root with `root_id` (query parameter)
 or the `X-DH-Root` header, and we validate it is one of the roots the user may act in.
 
+Nothing is looked up until it is needed: without an explicit root this dependency only returns the
+session, and get_root derives the single root when a service asks for it. That keeps endpoints that
+never touch root-scoped data (health, jobs, me) free of the org query (upscale audit finding 8).
+
 Root-dependent services read the chosen root via audit_setting.get_root(db, user_id).
 """
 from typing import Optional
@@ -25,16 +29,16 @@ def resolve_root(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    roots = get_accessible_roots(db, current_user.user_id)
     chosen = root_id if root_id is not None else x_dh_root
-    if chosen is not None:
-        if not any(str(r) == str(chosen) for r in roots):
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied: no AIDAA role is held in this root organization",
-            )
-    elif len(roots) == 1:
-        chosen = roots[0]
-    if chosen is not None:
-        setattr(db, ROOT_ATTR, chosen)
+    if chosen is None:
+        # No explicit root: get_root derives the caller's single root later, so
+        # this request pays no org query unless a service actually needs it.
+        return db
+    roots = get_accessible_roots(db, current_user.user_id)
+    if not any(str(r) == str(chosen) for r in roots):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: no AIDAA role is held in this root organization",
+        )
+    setattr(db, ROOT_ATTR, chosen)
     return db

@@ -4,9 +4,15 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.request_memo import memo
+
 # Write permission gates live in the routers (require_permission + authorize_assignment role
 # checks). The old guessed ROLE_ACTIONS/BOUND/actions matrix was removed (2026-10-25): nothing
 # consumed it and it had drifted from the real gates.
+#
+# Only IAM-derived answers are memoised (upscale audit finding 7). Assignment and member rows are
+# written by this same app, so my_assignment_role and assignment_scope stay uncached: a request
+# that changes the team must not read its old role back from a cache.
 
 
 def my_assignment_role(db: Session, user_id: UUID, assignment_id: UUID) -> Optional[str]:
@@ -43,53 +49,70 @@ def assignment_scope(db: Session, assignment_id: UUID) -> dict:
 def is_auditee_pic(db: Session, user_id: UUID, unit_org_id: Optional[UUID]) -> bool:
     if unit_org_id is None:
         return False
-    row = db.execute(text("""
-        WITH RECURSIVE anc AS (
-            SELECT org_id, parent_id FROM iam.organizations WHERE org_id = CAST(:o AS uuid)
-            UNION ALL
-            SELECT o.org_id, o.parent_id FROM iam.organizations o JOIN anc a ON o.org_id = a.parent_id
-        )
-        SELECT 1 FROM iam.active_user_roles m
-        JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
-        WHERE m.user_id = CAST(:u AS uuid) AND r.role_code = 'AIDAA.AUDITEE_PIC'
-          AND m.org_id IS NOT NULL AND m.org_id IN (SELECT org_id FROM anc)
-        LIMIT 1
-    """), {"o": str(unit_org_id), "u": str(user_id)}).fetchone()
-    return row is not None
+    return bool(pic_unit_orgs(db, user_id, [unit_org_id]))
 
 
 def pic_unit_orgs(db: Session, user_id: UUID, unit_org_ids: list) -> list:
-    """The audited unit orgs (of the given list) where this user is the auditee PIC."""
-    return [o for o in unit_org_ids if is_auditee_pic(db, user_id, o)]
+    """The audited unit orgs (of the given list) where this user is the auditee PIC.
+
+    One recursive query for the whole list instead of one per unit (upscale audit
+    finding 14). Each unit org walks its own ancestor chain, so a user holding the
+    PIC role in a parent org covers every unit below it, exactly like is_auditee_pic.
+    """
+    if not unit_org_ids:
+        return []
+    rows = db.execute(text("""
+        WITH RECURSIVE anc AS (
+            SELECT u.org_id AS unit_org_id, o.org_id, o.parent_id
+            FROM unnest(CAST(:orgs AS uuid[])) AS u(org_id)
+            JOIN iam.organizations o ON o.org_id = u.org_id
+            UNION ALL
+            SELECT a.unit_org_id, o.org_id, o.parent_id
+            FROM anc a JOIN iam.organizations o ON o.org_id = a.parent_id
+        )
+        SELECT DISTINCT a.unit_org_id
+        FROM anc a
+        JOIN iam.active_user_roles m ON m.org_id = a.org_id
+        JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
+        WHERE m.user_id = CAST(:u AS uuid) AND r.role_code = 'AIDAA.AUDITEE_PIC'
+    """), {"u": str(user_id), "orgs": [str(o) for o in unit_org_ids]}).fetchall()
+    found = {row.unit_org_id for row in rows}
+    return [o for o in unit_org_ids if o in found]
 
 
 def _perm_codes(db: Session, user_id: UUID, org_id: UUID) -> set:
-    rows = db.execute(text("""
-        WITH RECURSIVE anc AS (
-            SELECT org_id, parent_id FROM iam.organizations WHERE org_id = CAST(:o AS uuid)
-            UNION ALL
-            SELECT o.org_id, o.parent_id FROM iam.organizations o JOIN anc a ON o.org_id = a.parent_id
-        )
-        SELECT DISTINCT p.permission_code
-        FROM iam.active_user_roles m
-        JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
-        JOIN iam.role_permissions rp ON rp.role_id = r.role_id AND rp.is_allowed = TRUE
-        JOIN iam.permissions p ON p.permission_id = rp.permission_id
-        WHERE m.user_id = CAST(:u AS uuid)
-          AND p.permission_code LIKE 'audit.%'
-          AND (m.org_id IS NULL OR m.org_id IN (SELECT org_id FROM anc))
-    """), {"o": str(org_id), "u": str(user_id)}).fetchall()
-    return {r.permission_code for r in rows}
+    def load() -> set:
+        rows = db.execute(text("""
+            WITH RECURSIVE anc AS (
+                SELECT org_id, parent_id FROM iam.organizations WHERE org_id = CAST(:o AS uuid)
+                UNION ALL
+                SELECT o.org_id, o.parent_id FROM iam.organizations o JOIN anc a ON o.org_id = a.parent_id
+            )
+            SELECT DISTINCT p.permission_code
+            FROM iam.active_user_roles m
+            JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
+            JOIN iam.role_permissions rp ON rp.role_id = r.role_id AND rp.is_allowed = TRUE
+            JOIN iam.permissions p ON p.permission_id = rp.permission_id
+            WHERE m.user_id = CAST(:u AS uuid)
+              AND p.permission_code LIKE 'audit.%'
+              AND (m.org_id IS NULL OR m.org_id IN (SELECT org_id FROM anc))
+        """), {"o": str(org_id), "u": str(user_id)}).fetchall()
+        return {r.permission_code for r in rows}
+
+    return memo(db, ("perm_codes", str(user_id), str(org_id)), load)
 
 
 def _global_roles(db: Session, user_id: UUID) -> list[str]:
-    rows = db.execute(text("""
-        SELECT DISTINCT r.role_code FROM iam.active_user_roles m
-        JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
-        WHERE m.user_id = CAST(:u AS uuid) AND r.role_code LIKE 'AIDAA.%'
-        ORDER BY r.role_code
-    """), {"u": str(user_id)}).fetchall()
-    return [r.role_code for r in rows]
+    def load() -> list[str]:
+        rows = db.execute(text("""
+            SELECT DISTINCT r.role_code FROM iam.active_user_roles m
+            JOIN iam.roles r ON r.role_id = m.role_id AND r.is_active = TRUE
+            WHERE m.user_id = CAST(:u AS uuid) AND r.role_code LIKE 'AIDAA.%'
+            ORDER BY r.role_code
+        """), {"u": str(user_id)}).fetchall()
+        return [r.role_code for r in rows]
+
+    return memo(db, ("global_roles", str(user_id)), load)
 
 
 def get_my_access(db: Session, user_id: UUID, assignment_id: UUID) -> dict:

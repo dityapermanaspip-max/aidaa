@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.request_memo import memo
+
 NAME_JOIN = """
     LEFT JOIN LATERAL (
         SELECT official_name FROM iam.organization_details_log
@@ -29,21 +31,30 @@ def _roots(db: Session, user_id: UUID):
 
 
 def get_accessible_roots(db: Session, user_id: UUID) -> list[UUID]:
-    return [r.root_id for r in _roots(db, user_id)]
+    """Roots where the caller holds an AIDAA role, memoised for the request.
+
+    get_root and the resolve_root dependency both need this list; one lookup per
+    request is enough because AIDAA never writes IAM rows.
+    """
+    return memo(
+        db,
+        ("accessible_roots", str(user_id)),
+        lambda: [r.root_id for r in _roots(db, user_id)],
+    )
 
 
 def get_root(db: Session, user_id: UUID) -> UUID:
     active = getattr(db, ROOT_ATTR, None)
     if active is not None:
         return active
-    rows = _roots(db, user_id)
-    if not rows:
+    roots = get_accessible_roots(db, user_id)
+    if not roots:
         raise HTTPException(status_code=403, detail="No AIDAA role is assigned in an organization")
-    if len(rows) > 1:
+    if len(roots) > 1:
         raise HTTPException(status_code=409,
                             detail="Your AIDAA roles span more than one root organization; "
                                    "send the active root_id (query parameter or X-DH-Root header)")
-    return rows[0].root_id
+    return roots[0]
 
 
 def get_iau_org(db: Session, root_id: UUID) -> Optional[UUID]:
