@@ -35,6 +35,20 @@ a literal `%` (LIKE 'PROV-%', even in a comment) is passed through literally.
 11. aidaa_patch_05_realisation.sql  realisation_advance, realisation_cost, realisation_settlement (2026-10, applied).
     realisation_cost.amount is GENERATED (quantity x unit_rate), never insert it. realisation_settlement is
     open -> settled through an approval_task (settlement step 1 = finance_approve, AIDAA.FINANCE).
+12. aidaa_patch_06_korespondensi.sql      notices to the auditee and the berita acara per finding
+13. aidaa_patch_07_kuesioner.sql         questionnaire with a regenerable public link token
+14. aidaa_patch_08_change_requests.sql   assignment change requests (wires the seeded approval steps)
+15. aidaa_patch_09_expertise_ai.sql      expertise rows created from an accepted AI suggestion
+16. aidaa_patch_10_location_master.sql   global location tier (root_org_id NULL); never rerun patch 03 after it
+17. aidaa_patch_11_jobs.sql              background jobs (AI generation, PDF/OCR extraction)
+18. aidaa_patch_12_audit_retention.sql   created_at indexes on the five aidaa_log tables and the purge gate that
+    darkhive-bev2/scripts/archive_audit_logs.py uses (moved here from the IAM repo's schemasql/10 on 2026-11-16, so IAM
+    no longer needs this schema)
+19. aidaa_patch_13_approval_record_columns.sql  plan_id, finding_id, report_id, settlement_id on approval_task (was
+    item3_approval_record_columns.sql, which no order listed; needs patch 05). A fresh install lacked these columns.
+Patch 01 also converts `ref_cost_rate.grade` to a jsonb array (the code needs it; the statements were missing from the
+file until 2026-11-16, so a fresh install kept varchar(30)).
+Checked 2026-11-16: files 1-19 applied in this order to an empty database after IAM, registry equal to live (238 rows).
 Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 must contain the complete list.
 
 ## Seeds (sql/sql_seed/, data not patches)

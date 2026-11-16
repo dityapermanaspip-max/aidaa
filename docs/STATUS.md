@@ -2,6 +2,14 @@
 
 Last updated: 2026-11-16. Update this file whenever work changes it.
 
+## Fresh-install readiness (2026-11-16)
+Three gaps stopped a clean install and are fixed in the files: the `approval_task` record columns now have a numbered
+patch (13), the jsonb conversion of `ref_cost_rate.grade` is really in patch 01, and the audit-retention patch moved
+here from the IAM repo as patch 12 (so an IAM-only install no longer needs `aidaa_log`). Checked on an empty scratch
+database after IAM: all files applied, registry equal to live (238 rows), `pytest` 19 passed and 2 errors (those two
+borrow an existing organisation that holds an AIDAA grant, so an empty database cannot run them). Not applied to the
+live DB: patch 12 (this DB still lacks the created_at indexes and the purge gate).
+
 ## demo-ai branch
 Branch `demo-ai` is forked from `main` (same branch name in the other Darkhive repos). Built here: the PDF
 extractor for SBM and library AI drafts (`app/api/v1/aidaa/doc_extract.py`, mirror of GrIMIS doc_extract).
@@ -236,7 +244,7 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   `settlement_id` alongside `record_type`/`record_id`, so the inbox links directly to its record instead of a sliced ID.
   `create_task` accepts the new columns and auto-derives finding/report/settlement from record_type; plan callers pass
   `plan_id` explicitly (record_id is a version_id there). `TaskOut` schema carries the new columns.
-  Schema change: `sql/item3_approval_record_columns.sql` (psql one-liner, applied to the live DB; presence of the
+  Schema change: `sql/aidaa_patch_13_approval_record_columns.sql` (was `item3_approval_record_columns.sql`; applied to the live DB; presence of the
   four columns verified via information_schema, 2026-10).
 Realisation settlement is now runnable: `app/services/settlement.py` + two routes in the realisation router
 (`GET|POST /assignment/{id}/realisation/settlements`). Submitting an auditor's settlement upserts
