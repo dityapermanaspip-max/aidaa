@@ -1,6 +1,6 @@
 ﻿# Status
 
-Last updated: 2026-10. Update this file whenever work changes it.
+Last updated: 2026-11-16. Update this file whenever work changes it.
 
 ## demo-ai branch
 Branch `demo-ai` is forked from `main` (same branch name in the other Darkhive repos). Built here: the PDF
@@ -57,7 +57,11 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
   assignments, plans, auditors, funding sources, library PKA, deviations, my tasks, auditor candidates,
   org options, the five AI draft/extract lists, cost components and cost rates. Reference lists
   (locations, audit types, units, org options, cost components) use a wide default of 1000 (cap 2000)
-  because dropdowns read them whole; the rest default to 200 (= cap) until the frontend pager ships.
+  because dropdowns read them whole; the rest default to 200 (= cap). The frontend now pages the Auditor and Surat Tugas screens and its
+  pickers (2026-11-13, written, not checked in a browser): it always sends `limit`/`offset`, and a picker
+  reads 200-row pages until a short one. An older deployed frontend sends no limit, so
+  `paging.DEFAULT_LIMIT` stays 200 and drops to 50 only after the new frontend is deployed (owner
+  decision 2026-10-29).
   The response stays a plain array, so no screen and no `aFetch` changed; another page exists while a
   page comes back full. List endpoints scoped to one parent (team, visits, legs, findings, PKA,
   procedures, reports, correspondence) stay unpaginated: the parent bounds them. Exercised locally

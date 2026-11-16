@@ -16,10 +16,11 @@ Reference lists (locations, units, audit types, org options) feed dropdowns and
 are read whole on purpose, so they get a much wider default; they are still
 bounded, so a runaway master table cannot serialise itself into memory.
 
-Defaults sit at the cap on purpose. The frontend has no pager yet, and silently
-dropping rows a screen expects would be a regression, so a normal org (under
-200 auditors) sees exactly what it saw before. Lower ``DEFAULT_LIMIT`` to 50 in
-one line once the pager ships (owner decision 2026-10-29).
+Defaults sit at the cap on purpose. The frontend now always sends an explicit
+limit (2026-11-13: the Auditor and Surat Tugas screens page, pickers read 200-row
+pages until a short one), but an older deployed frontend does not, and silently
+dropping rows it expects would be a regression. Lower ``DEFAULT_LIMIT`` to 50 in
+one line once the new frontend is deployed (owner decision 2026-10-29).
 """
 
 from typing import Optional

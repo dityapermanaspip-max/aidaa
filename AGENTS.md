@@ -15,4 +15,5 @@ Hard rules (details in 00_RULES):
 - Do not write code until the owner writes "go code".
 - The agent reads files from disk itself; the owner never has to paste a file. Never guess file contents.
 - Do NOT modify IAM tables. Never edit sql/ or reference/ unless asked.
+- An org's root is `iam.organizations.root_org_id` (use `scope.root_of_org`). Never walk `parent_id` upward to find it.
 - Update docs/STATUS.md and docs/DECISIONS.md when work changes them.
