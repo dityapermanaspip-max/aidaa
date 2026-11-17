@@ -202,10 +202,11 @@ def list_candidates(db: Session, user_id: UUID, component_id: UUID, location_id:
 def create_rate(db: Session, payload: CostRateCreate, user_id: UUID) -> dict:
     root = get_root(db, user_id)
     assert_in_root(db, _COMP, payload.component_id, root, "Cost component")
+    # Rates may point at the shared national (BPS) tier as well as the org's own rows; another root's rows stay 404.
     if payload.location_id:
-        assert_in_root(db, _LOC, payload.location_id, root, "Location")
+        assert_in_root(db, _LOC, payload.location_id, root, "Location", allow_global=True)
     if payload.origin_location_id:
-        assert_in_root(db, _LOC, payload.origin_location_id, root, "Origin location")
+        assert_in_root(db, _LOC, payload.origin_location_id, root, "Origin location", allow_global=True)
     _check_rate_dates(payload.effective_from, payload.effective_to)
     row = db.execute(text(f"""
         INSERT INTO aidaa_core.ref_cost_rate
@@ -233,9 +234,9 @@ def update_rate(db: Session, rate_id: UUID, payload: CostRateUpdate, user_id: UU
     if data.get("component_id"):
         assert_in_root(db, _COMP, data["component_id"], root, "Cost component")
     if data.get("location_id"):
-        assert_in_root(db, _LOC, data["location_id"], root, "Location")
+        assert_in_root(db, _LOC, data["location_id"], root, "Location", allow_global=True)
     if data.get("origin_location_id"):
-        assert_in_root(db, _LOC, data["origin_location_id"], root, "Origin location")
+        assert_in_root(db, _LOC, data["origin_location_id"], root, "Origin location", allow_global=True)
     _check_rate_dates(data.get("effective_from", current["effective_from"]),
                       data.get("effective_to", current["effective_to"]))
     if "grade" in data:

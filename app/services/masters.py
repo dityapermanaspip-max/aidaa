@@ -202,8 +202,8 @@ def _check_unit_refs(db: Session, user_id: UUID, org_id: Optional[UUID], locatio
         """), {"o": str(org_id), "me": str(unit_id) if unit_id else None}).fetchone()
         if dup:
             raise HTTPException(status_code=409, detail=f"This organization is already tagged as unit {dup.unit_code}")
-    if location_id:
-        assert_in_root(db, _LOC, location_id, get_root(db, user_id), "Location")
+    if location_id:  # the shared national (BPS) tier is a valid location too, like for rates, trips and auditors
+        assert_in_root(db, _LOC, location_id, get_root(db, user_id), "Location", allow_global=True)
 
 
 def list_units(db: Session, user_id: UUID, active_only: bool = True, search: Optional[str] = None,
