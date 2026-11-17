@@ -1,6 +1,6 @@
 ﻿# Status
 
-Last updated: 2026-11-16. Update this file whenever work changes it.
+Last updated: 2026-11-17. Update this file whenever work changes it.
 
 ## Fresh-install readiness (2026-11-16)
 Three gaps stopped a clean install and are fixed in the files: the `approval_task` record columns now have a numbered
@@ -197,6 +197,18 @@ Master pages, auditor and IAU setting, org scope, units on plans and assignments
 - Seeds: seed_trip_components loaded (6 components). 2026 trial rates loaded.
 
 ## Done recently
+- 2026-11-17 (go sql, scratch-tested, NOT applied anywhere real): new seed `sql/sql_seed/seed_demo_instansi.sql` for the
+  root "Instansi Demo" (it lives on the VPS only; the local `darkhivecore` has no such organisation). Gives a first-try
+  AIDAA: 4 audit types, 8 cost components, 8 approved demo rates, 3 funding sources, 5 library PKA (15 procedures), plus
+  auditors and units read from the org's IAM data. Checked on a scratch clone with a stand-in organisation (see
+  DECISIONS 2026-11-17). Owner step on the VPS: `python scripts/apply_schema.py --file sql/sql_seed/seed_demo_instansi.sql
+  --dry-run --yes`, then without `--dry-run` (needs its own "go sql"), designate the IAU in Pengaturan Audit, run it again.
+- 2026-11-17 (go code, owner test pending): fixed the unit form refusing national locations. The "Unit yang Diaudit"
+  form (and the cost-rate form) lists the shared BPS locations, but saving one answered `404 Location not found`
+  because `_check_unit_refs` and `create_rate` / `update_rate` did not pass `allow_global=True` (the 2026-10-25 global
+  tier sweep missed them). Five checks changed in `masters.py` and `masters_costing.py`; another root's location is
+  still a 404. New `tests/test_location_tiers.py`, 9 tests (4 fail without the fix); the AIDAA suite is 30 passed
+  and leaves no rows. Not tried in the browser yet. Decision in docs/DECISIONS.md (2026-11-17).
 - 2026-10-25 (go code, owner test pending): to-do 4 built — budget lines above the SBM reference are flagged
   and need a reason (rule in docs/domains/rates-and-budget.md): the plan budget AI modal carries a typed
   unit_rate with an "Di atas SBM" badge and a required Alasan textarea; accept re-checks server-side (422

@@ -62,6 +62,13 @@ Note: patch 03 runs after patch 02. If 01 also redefines the feature CHECK, 02 m
   (ON CONFLICT ... DO NOTHING on both blocks): a rerun adds missing places and HEALS stale province
   spellings. The `province` column of every location carries the province NAME (`'Jawa Barat'`, never
   `'PROV-...'`) - budget_core.location_fits compares it as text, budgeting/realisation depend on that.
+- seed_demo_instansi.sql: DEMO data for the root "Instansi Demo" (added 2026-11-17, separate from every other seed).
+  Names its root by OFFICIAL NAME in step 0 (exactly one active root, else it stops). Adds audit types (KEU, KIN, PDTT,
+  REVIU), eight cost components (UANG_HARIAN, PENGINAPAN and the six at_cost trip ones), eight APPROVED demo rates (one
+  national amount per grade, 2026-2027, NOT from a PMK), three funding sources, five library PKA with 15 procedures. Then,
+  from IAM data it only reads: auditors (users holding AIDAA.AUDITOR under the root) and units (active orgs under the root
+  outside the IAU subtree). Those two are skipped for what is missing: designate the IAU in the app, run the file again.
+  Safe to rerun. Exception to the line below: step 7 reads audit_setting of the named root (never to find the root).
 A seed names its root by ORG CODE in step 0 (many roots exist). Never read audit_setting in a seed. The one
 exception is the national seed, which is rootless by design.
 
